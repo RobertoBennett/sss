@@ -1,0 +1,1398 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0" />
+  <meta name="theme-color" content="#0f172a" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="База пропусков" />
+  <title>База пропусков — Поиск ТС</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@600;700&display=swap" rel="stylesheet" />
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'system-ui', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          }
+        }
+      }
+    };
+  </script>
+  <style>
+    /* Плавная горизонтальная прокрутка чипов без полос прокрутки */
+    .no-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+    .no-scrollbar {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+    /* Визуальный стиль российского номерного знака */
+    .ru-plate {
+      display: inline-flex;
+      align-items: stretch;
+      background: #ffffff;
+      border: 2px solid #1e293b;
+      border-radius: 7px;
+      color: #0f172a;
+      font-family: 'JetBrains Mono', monospace;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+      overflow: hidden;
+      line-height: 1;
+    }
+    .ru-plate-main {
+      padding: 6px 10px;
+      font-weight: 700;
+      font-size: 1.05rem;
+      letter-spacing: 0.03em;
+      display: flex;
+      align-items: center;
+      white-space: nowrap;
+    }
+    .ru-plate-reg {
+      border-left: 1.5px solid #1e293b;
+      padding: 3px 7px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: #f8fafc;
+      min-width: 42px;
+    }
+    .ru-plate-reg-num {
+      font-size: 0.78rem;
+      font-weight: 700;
+      line-height: 1.05;
+    }
+    .ru-plate-rus {
+      font-size: 0.52rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      color: #334155;
+      margin-top: 2px;
+      display: flex;
+      align-items: center;
+      gap: 2px;
+    }
+    .ru-flag {
+      display: inline-block;
+      width: 10px;
+      height: 6px;
+      background: linear-gradient(to bottom, #ffffff 0% 33%, #0039a6 33% 66%, #d52b1e 66% 100%);
+      border: 0.5px solid #94a3b8;
+    }
+  </style>
+</head>
+<body class="bg-slate-100 text-slate-900 min-h-screen flex flex-col antialiased selection:bg-blue-600 selection:text-white">
+
+  <!-- Верхняя панель (Шапка) -->
+  <header class="bg-slate-900 text-white sticky top-0 z-30 shadow-md">
+    <div class="max-w-7xl mx-auto px-3 sm:px-6 py-3">
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <!-- Заголовок и счётчик -->
+        <div class="flex items-center gap-2.5 min-w-0">
+          <div class="w-9 h-9 rounded-xl bg-blue-600 flex items-center justify-center shrink-0 shadow-inner">
+            <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M8 17h8M7 11l1.5-4.5A2 2 0 0110.4 5h3.2a2 2 0 011.9 1.5L17 11m-10 0h10m-10 0a2 2 0 00-2 2v3a1 1 0 001 1h1a1 1 0 001-1v-1h8v1a1 1 0 001 1h1a1 1 0 001-1v-3a2 2 0 00-2-2" />
+            </svg>
+          </div>
+          <div class="min-w-0">
+            <div class="flex items-center gap-2">
+              <h1 class="text-base sm:text-lg font-bold tracking-tight truncate">База пропусков — Поиск ТС</h1>
+              <span id="totalBadge" class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-blue-500/20 text-blue-200 border border-blue-400/30 shrink-0">382</span>
+            </div>
+            <p class="text-[11px] sm:text-xs text-slate-400 truncate" id="offlineStatusText">Готово к работе • Офлайн-база</p>
+          </div>
+        </div>
+
+        <!-- Кнопки действий -->
+        <div class="flex items-center gap-1.5 sm:gap-2">
+          <button id="installPwaBtn" type="button" class="hidden items-center gap-1.5 px-3 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 active:scale-95 text-xs font-semibold transition cursor-pointer">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5m0 0l5-5m-5 5V3"/></svg>
+            <span class="hidden sm:inline">На экран</span>
+          </button>
+
+          <button id="openAddModalBtn" type="button" class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-xs sm:text-sm font-semibold text-white shadow-sm transition cursor-pointer">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.4" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
+            <span>Добавить авто</span>
+          </button>
+
+          <div class="relative">
+            <button id="exportMenuBtn" type="button" class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 active:scale-95 text-xs sm:text-sm font-medium text-slate-200 transition cursor-pointer" title="Экспорт и резервная копия">
+              <svg class="w-4 h-4 text-slate-300" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+              <span class="hidden md:inline">Экспорт</span>
+            </button>
+            <!-- Выпадающее меню экспорта -->
+            <div id="exportDropdown" class="hidden absolute right-0 mt-2 w-56 rounded-2xl bg-white text-slate-800 shadow-xl border border-slate-200 py-1.5 z-40">
+              <button type="button" id="exportCsvBtn" class="w-full text-left px-4 py-2.5 text-sm hover:bg-slate-100 flex items-center gap-2.5 font-medium cursor-pointer">
+                <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+                Скачать CSV (для Excel)
+              </button>
+              <button type="button" id="exportJsonBtn" class="w-full text-left px-4 py-2.5 text-sm hover:bg-slate-100 flex items-center gap-2.5 font-medium cursor-pointer">
+                <span class="w-2 h-2 rounded-full bg-blue-500"></span>
+                Скачать JSON (резервная копия)
+              </button>
+              <div class="border-t border-slate-100 my-1"></div>
+              <button type="button" id="resetCustomBtn" class="w-full text-left px-4 py-2 text-xs text-rose-600 hover:bg-rose-50 flex items-center gap-2 cursor-pointer">
+                Сбросить добавленные авто
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Панель поиска и фильтров -->
+  <section class="bg-white border-b border-slate-200 shadow-sm sticky top-[60px] sm:top-[64px] z-20">
+    <div class="max-w-7xl mx-auto px-3 sm:px-6 py-3 space-y-2.5">
+      <!-- Строка поиска -->
+      <div class="flex flex-col sm:flex-row gap-2">
+        <div class="relative flex-1">
+          <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
+            <svg class="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35m0 0A7.5 7.5 0 1010.5 18a7.5 7.5 0 006.15-3.35z" />
+            </svg>
+          </div>
+          <input
+            id="searchInput"
+            type="text"
+            inputmode="text"
+            autocomplete="off"
+            autocorrect="off"
+            spellcheck="false"
+            autofocus
+            placeholder="Введите цифры номера (напр. 770, 400, 1) или фамилию, авто..."
+            class="w-full pl-11 pr-24 py-3 text-base sm:text-lg font-medium bg-slate-50 border-2 border-slate-300 focus:border-blue-600 focus:bg-white rounded-2xl outline-none transition placeholder:text-slate-400 placeholder:text-sm sm:placeholder:text-base"
+          />
+          <div class="absolute inset-y-0 right-0 pr-2 flex items-center gap-1">
+            <button
+              id="toggleNumpadBtn"
+              type="button"
+              title="Цифровая клавиатура"
+              class="p-2 rounded-xl text-slate-500 hover:text-blue-600 hover:bg-blue-50 active:scale-95 transition cursor-pointer"
+            >
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h2v2H4V6zm7 0h2v2h-2V6zm7 0h2v2h-2V6zM4 11h2v2H4v-2zm7 0h2v2h-2v-2zm7 0h2v2h-2v-2zM4 16h2v2H4v-2zm7 0h2v2h-2v-2zm7 0h2v2h-2v-2z" />
+              </svg>
+            </button>
+            <button
+              id="clearSearchBtn"
+              type="button"
+              aria-label="Очистить поиск"
+              class="hidden p-2 rounded-xl bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold text-sm leading-none active:scale-95 transition cursor-pointer"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+
+        <!-- Переключатель режима поиска -->
+        <div class="flex rounded-2xl bg-slate-100 p-1 border border-slate-200 shrink-0 self-stretch sm:self-auto">
+          <button
+            id="modeAllBtn"
+            type="button"
+            class="flex-1 sm:flex-initial px-3 py-2 rounded-xl text-xs sm:text-sm font-semibold bg-white text-blue-700 shadow-sm transition cursor-pointer"
+          >
+            Все поля
+          </button>
+          <button
+            id="modeDigitsBtn"
+            type="button"
+            class="flex-1 sm:flex-initial px-3 py-2 rounded-xl text-xs sm:text-sm font-semibold text-slate-600 hover:text-slate-900 transition cursor-pointer"
+          >
+            Только цифры номера
+          </button>
+        </div>
+      </div>
+
+      <!-- Встроенная цифровая панель быстрого ввода -->
+      <div id="numpadPanel" class="hidden bg-slate-50 border border-slate-200 rounded-2xl p-2">
+        <div class="grid grid-cols-6 sm:grid-cols-12 gap-1.5">
+          <button type="button" data-digit="1" class="numpad-key py-2.5 rounded-xl bg-white border border-slate-300 font-mono font-bold text-base hover:bg-blue-50 active:bg-blue-600 active:text-white shadow-xs transition cursor-pointer">1</button>
+          <button type="button" data-digit="2" class="numpad-key py-2.5 rounded-xl bg-white border border-slate-300 font-mono font-bold text-base hover:bg-blue-50 active:bg-blue-600 active:text-white shadow-xs transition cursor-pointer">2</button>
+          <button type="button" data-digit="3" class="numpad-key py-2.5 rounded-xl bg-white border border-slate-300 font-mono font-bold text-base hover:bg-blue-50 active:bg-blue-600 active:text-white shadow-xs transition cursor-pointer">3</button>
+          <button type="button" data-digit="4" class="numpad-key py-2.5 rounded-xl bg-white border border-slate-300 font-mono font-bold text-base hover:bg-blue-50 active:bg-blue-600 active:text-white shadow-xs transition cursor-pointer">4</button>
+          <button type="button" data-digit="5" class="numpad-key py-2.5 rounded-xl bg-white border border-slate-300 font-mono font-bold text-base hover:bg-blue-50 active:bg-blue-600 active:text-white shadow-xs transition cursor-pointer">5</button>
+          <button type="button" data-digit="6" class="numpad-key py-2.5 rounded-xl bg-white border border-slate-300 font-mono font-bold text-base hover:bg-blue-50 active:bg-blue-600 active:text-white shadow-xs transition cursor-pointer">6</button>
+          <button type="button" data-digit="7" class="numpad-key py-2.5 rounded-xl bg-white border border-slate-300 font-mono font-bold text-base hover:bg-blue-50 active:bg-blue-600 active:text-white shadow-xs transition cursor-pointer">7</button>
+          <button type="button" data-digit="8" class="numpad-key py-2.5 rounded-xl bg-white border border-slate-300 font-mono font-bold text-base hover:bg-blue-50 active:bg-blue-600 active:text-white shadow-xs transition cursor-pointer">8</button>
+          <button type="button" data-digit="9" class="numpad-key py-2.5 rounded-xl bg-white border border-slate-300 font-mono font-bold text-base hover:bg-blue-50 active:bg-blue-600 active:text-white shadow-xs transition cursor-pointer">9</button>
+          <button type="button" data-digit="0" class="numpad-key py-2.5 rounded-xl bg-white border border-slate-300 font-mono font-bold text-base hover:bg-blue-50 active:bg-blue-600 active:text-white shadow-xs transition cursor-pointer">0</button>
+          <button type="button" id="numpadBackspace" class="py-2.5 rounded-xl bg-amber-50 border border-amber-300 text-amber-800 font-bold text-sm hover:bg-amber-100 active:scale-95 transition cursor-pointer">⌫</button>
+          <button type="button" id="numpadClear" class="py-2.5 rounded-xl bg-rose-50 border border-rose-300 text-rose-700 font-bold text-xs hover:bg-rose-100 active:scale-95 transition cursor-pointer">Сброс</button>
+        </div>
+      </div>
+
+      <!-- Фильтры-чипы: Списки -->
+      <div class="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-0.5" id="listChipsContainer"></div>
+
+      <!-- Фильтры-чипы: Статус досмотра + Счётчик найденного -->
+      <div class="flex flex-wrap items-center justify-between gap-2 pt-0.5">
+        <div class="flex items-center gap-1.5 overflow-x-auto no-scrollbar" id="statusChipsContainer">
+          <button type="button" data-status="all" class="status-chip px-3 py-1.5 rounded-xl text-xs font-semibold bg-slate-800 text-white transition cursor-pointer shrink-0">
+            Все статусы
+          </button>
+          <button type="button" data-status="no_inspection" class="status-chip px-3 py-1.5 rounded-xl text-xs font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100 transition cursor-pointer shrink-0">
+            ✓ Без досмотра
+          </button>
+          <button type="button" data-status="with_inspection" class="status-chip px-3 py-1.5 rounded-xl text-xs font-semibold bg-rose-50 text-rose-800 border border-rose-200 hover:bg-rose-100 transition cursor-pointer shrink-0">
+            ! С досмотром
+          </button>
+        </div>
+
+        <div class="text-xs sm:text-sm font-medium text-slate-600">
+          Найдено: <span id="foundCount" class="font-bold text-slate-900">382</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Основная рабочая область с карточками -->
+  <main class="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 py-4">
+    <!-- Пустой результат -->
+    <div id="emptyState" class="hidden bg-white rounded-3xl border border-slate-200 p-8 sm:p-12 text-center shadow-xs my-4">
+      <div class="w-14 h-14 rounded-2xl bg-slate-100 text-slate-400 flex items-center justify-center mx-auto mb-3">
+        <svg class="w-7 h-7" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35m0 0A7.5 7.5 0 1010.5 18a7.5 7.5 0 006.15-3.35z" />
+        </svg>
+      </div>
+      <h2 class="text-lg font-bold text-slate-800">Автомобили не найдены</h2>
+      <p class="text-sm text-slate-500 mt-1 max-w-md mx-auto">Попробуйте изменить запрос, переключить режим поиска или сбросить выбранные фильтры.</p>
+      <button id="resetFiltersBtn" type="button" class="mt-4 px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold transition cursor-pointer">
+        Сбросить поиск и фильтры
+      </button>
+    </div>
+
+    <!-- Сетка карточек -->
+    <div id="cardsGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4"></div>
+
+    <!-- Кнопка подгрузки остальных карточек при большом списке -->
+    <div id="loadMoreWrap" class="hidden mt-6 text-center">
+      <button id="loadMoreBtn" type="button" class="px-6 py-3 rounded-2xl bg-white hover:bg-slate-50 border border-slate-300 text-sm font-semibold text-slate-700 shadow-xs active:scale-95 transition cursor-pointer">
+        Показать ещё записи
+      </button>
+    </div>
+  </main>
+
+  <!-- Модальное окно добавления автомобиля -->
+  <div id="addModal" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4">
+    <div class="bg-white w-full sm:max-w-lg rounded-t-3xl sm:rounded-3xl shadow-2xl border border-slate-200 overflow-hidden max-h-[92vh] flex flex-col">
+      <div class="px-5 py-4 bg-slate-900 text-white flex items-center justify-between">
+        <h2 class="text-base sm:text-lg font-bold">Добавить автомобиль в базу</h2>
+        <button id="closeAddModalBtn" type="button" class="p-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 cursor-pointer">✕</button>
+      </div>
+      <form id="addCarForm" class="p-5 space-y-3.5 overflow-y-auto">
+        <div>
+          <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Название списка *</label>
+          <select id="fList" required class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 bg-slate-50 focus:bg-white focus:border-blue-600 outline-none text-sm font-semibold">
+            <option value="21 пост (основной)">21 пост (основной)</option>
+            <option value="Мир Интеллекта">Мир Интеллекта</option>
+            <option value="Хедер Менахем">Хедер Менахем</option>
+            <option value="Музей (постоянные пропуска)">Музей (постоянные пропуска)</option>
+            <option value="Авто Бороды">Авто Бороды</option>
+          </select>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Гос. номер *</label>
+            <input id="fPlate" type="text" required placeholder="Напр. А 777 АА 797" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 bg-slate-50 focus:bg-white focus:border-blue-600 outline-none text-sm font-mono font-bold uppercase" />
+          </div>
+          <div>
+            <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Марка / модель</label>
+            <input id="fModel" type="text" placeholder="Напр. Мерседес" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 bg-slate-50 focus:bg-white focus:border-blue-600 outline-none text-sm" />
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Цвет</label>
+            <input id="fColor" type="text" placeholder="Напр. черный" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 bg-slate-50 focus:bg-white focus:border-blue-600 outline-none text-sm" />
+          </div>
+          <div>
+            <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Статус досмотра</label>
+            <select id="fStatusPreset" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 bg-slate-50 focus:bg-white focus:border-blue-600 outline-none text-sm">
+              <option value="">Обычный / не указан</option>
+              <option value="Без досмотра">Без досмотра</option>
+              <option value="С досмотром">С досмотром</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Водитель</label>
+            <input id="fDriver" type="text" placeholder="ФИО водителя" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 bg-slate-50 focus:bg-white focus:border-blue-600 outline-none text-sm" />
+          </div>
+          <div>
+            <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Организация</label>
+            <input id="fOrg" type="text" placeholder="Организация / объект" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 bg-slate-50 focus:bg-white focus:border-blue-600 outline-none text-sm" />
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Телефон</label>
+            <input id="fPhone" type="tel" placeholder="8-900-000-00-00" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 bg-slate-50 focus:bg-white focus:border-blue-600 outline-none text-sm" />
+          </div>
+          <div>
+            <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Примечание</label>
+            <input id="fNote" type="text" placeholder="Доп. информация" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 bg-slate-50 focus:bg-white focus:border-blue-600 outline-none text-sm" />
+          </div>
+        </div>
+
+        <div class="pt-2 flex items-center justify-end gap-2">
+          <button type="button" id="cancelAddModalBtn" class="px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-semibold cursor-pointer">Отмена</button>
+          <button type="submit" class="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold shadow-sm cursor-pointer">Сохранить в базу</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Всплывающее уведомление (Toast) -->
+  <div id="toast" class="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 hidden px-4 py-2.5 rounded-2xl bg-slate-900 text-white text-sm font-medium shadow-xl border border-slate-700"></div>
+
+  <script>
+    // =========================================================================
+    // 1. ПОЛНАЯ ВСТРОЕННАЯ БАЗА ДАННЫХ (382 ЗАПИСИ)
+    // =========================================================================
+    const BASE_CARS = [
+      {"list":"Мир Интеллекта","plate":"О 001 ОО 09","num":1,"model":"Мерседес","color":"","driver":"Иосифов Михаил","org":"Мир Интеллекта","phone":"8-903-721-93-30","note":"Ребенок: Иосифова Раэль"},
+      {"list":"Мир Интеллекта","plate":"С 001 МС 99","num":1,"model":"Мерседес","color":"","driver":"Давыдова Рина","org":"Мир Интеллекта","phone":"8-926-783-63-63","note":"Ребенок: Давыдова Лея"},
+      {"list":"Мир Интеллекта","plate":"Х 001 ММ 99","num":1,"model":"Мерседес","color":"","driver":"Геращенко Юрий","org":"Мир Интеллекта","phone":"8-926-728-80-29","note":"Ребенок: Давыдова Лея"},
+      {"list":"21 пост (основной)","plate":"А 005 ОО 77","num":5,"model":"Ginesis -80","color":"","driver":"","org":"Офис Бороды АМ","phone":"","note":"Без досмотра"},
+      {"list":"Хедер Менахем","plate":"О 006 ЕМ 199","num":6,"model":"Хендай Гленд","color":"","driver":"Бродский Александр","org":"Хедер Менахем","phone":"8(963) 782 5661","note":"Фамилия: Гольдберг"},
+      {"list":"Мир Интеллекта","plate":"В 008 ТХ 197","num":8,"model":"Мерседес","color":"","driver":"Мирилашвили Анна","org":"Мир Интеллекта","phone":"8-915-152-94-60","note":"Ребенок: Мирилашвили Томас"},
+      {"list":"Мир Интеллекта","plate":"К 008 НМ 777","num":8,"model":"Мерседес","color":"","driver":"Гоян Роман Халилович","org":"Мир Интеллекта","phone":"8-966-008-77-78","note":"Ребенок: Мирилашвили Томас"},
+      {"list":"Мир Интеллекта","plate":"Г 015 СК 797","num":15,"model":"Range rover","color":"","driver":"Давид Симангаев","org":"Мир Интеллекта","phone":"8-917-598-66-55","note":"Ребенок: Симангаев Давид Элазар"},
+      {"list":"Мир Интеллекта","plate":"А 016 ОК 797","num":16,"model":"Мерседес","color":"","driver":"Остринин Денис Викторович","org":"Мир Интеллекта","phone":"8-925-733-40-05","note":"Ребенок: Исакова Мишель"},
+      {"list":"21 пост (основной)","plate":"Т 017 КК 177","num":17,"model":"Tesla Model S","color":"черный","driver":"Борода А.М.","org":"","phone":"","note":""},
+      {"list":"Мир Интеллекта","plate":"О 018 ОО 77","num":18,"model":"LIXIANG","color":"","driver":"Стецкинский Павел","org":"Мир Интеллекта","phone":"8-916-123-02-07","note":"Ребенок: Шалелашвили Мишель"},
+      {"list":"21 пост (основной)","plate":"У 018 ОО 797","num":18,"model":"ЛИ 9","color":"","driver":"","org":"Лагерь Истра","phone":"","note":""},
+      {"list":"Мир Интеллекта","plate":"У 022 ОР 977","num":22,"model":"ЗИКР 001","color":"","driver":"Назимов Давид","org":"Мир Интеллекта","phone":"8-916-514-56-58","note":"Ребенок: Назимов Абаян"},
+      {"list":"21 пост (основной)","plate":"У 024 УТ 790","num":24,"model":"Шевролет","color":"","driver":"","org":"Офис Бороды АМ","phone":"","note":"Без досмотра"},
+      {"list":"Хедер Менахем","plate":"М 025 ТР 799","num":25,"model":"Фольксваген Поло","color":"","driver":"Бекерман Менахем Мендель / Бекерман Хая","org":"Хедер Менахем","phone":"8(903) 972 6614","note":"Фамилия: Бекерман"},
+      {"list":"21 пост (основной)","plate":"Н 030 ЕХ","num":30,"model":"Мерседес микроавт","color":"","driver":"Борода","org":"","phone":"","note":""},
+      {"list":"21 пост (основной)","plate":"Р 031 ЕЕ","num":31,"model":"Фольксваген","color":"","driver":"","org":"Месивта","phone":"","note":""},
+      {"list":"Хедер Менахем","plate":"М 032 ВК 750","num":32,"model":"Форд Гэлэкси","color":"","driver":"Дерен Соши","org":"Хедер Менахем","phone":"8(910) 004 4666","note":"Фамилия: Дерен"},
+      {"list":"21 пост (основной)","plate":"М 035 ХВ 77","num":35,"model":"Форд транзит","color":"","driver":"","org":"","phone":"","note":""},
+      {"list":"21 пост (основной)","plate":"А 042 МР 97","num":42,"model":"Генезис","color":"","driver":"","org":"","phone":"","note":"Без досмотра"},
+      {"list":"Мир Интеллекта","plate":"0 045 НВ 977","num":45,"model":"Ауди","color":"","driver":"Михайлов Заур","org":"Мир Интеллекта","phone":"8-969-766-99-36","note":"Ребенок: Михайлов Глория"},
+      {"list":"21 пост (основной)","plate":"У 050 УС","num":50,"model":"Мерседес","color":"","driver":"","org":"","phone":"","note":"Без досмотра"},
+      {"list":"21 пост (основной)","plate":"К 053 РС 777","num":53,"model":"Шевролет","color":"","driver":"Марзел Иосеф","org":"Общежитие","phone":"","note":""},
+      {"list":"21 пост (основной)","plate":"Т 055 УК 799","num":55,"model":"","color":"","driver":"","org":"","phone":"","note":""},
+      {"list":"21 пост (основной)","plate":"У 058 АК 977","num":58,"model":"Лексус","color":"","driver":"Иосеф Вайсберг","org":"Офис Бороды АМ","phone":"","note":"Без досмотра"},
+      {"list":"Музей (постоянные пропуска)","plate":"М060УХ 799","num":60,"model":"KIA","color":"","driver":"","org":"Музей","phone":"","note":""},
+      {"list":"21 пост (основной)","plate":"Н 072 ХР","num":72,"model":"Тесла","color":"","driver":"Борода","org":"","phone":"","note":""},
+      {"list":"Авто Бороды","plate":"Н072ХР 777","num":72,"model":"Tesla X","color":"","driver":"","org":"Борода","phone":"","note":""},
+      {"list":"21 пост (основной)","plate":"073","num":73,"model":"Форд","color":"","driver":"","org":"","phone":"","note":""},
+      {"list":"Мир Интеллекта","plate":"В 077 ВС 177","num":77,"model":"Lixiang","color":"","driver":"Шамуилов Шамуил Исакович","org":"Мир Интеллекта","phone":"8-915-331-88-88","note":"Ребенок: Шамуилова Марина Шамуиловна"},
+      {"list":"21 пост (основной)","plate":"Т 080 МЕ 190","num":80,"model":"Лексус","color":"","driver":"","org":"","phone":"","note":""},
+      {"list":"21 пост (основной)","plate":"Р 083 ММ 159","num":83,"model":"Хендай Старекс","color":"","driver":"","org":"","phone":"","note":""},
+      {"list":"21 пост (основной)","plate":"Р 097 КК","num":97,"model":"Мерседес","color":"","driver":"","org":"","phone":"89173430695","note":""},
+      {"list":"Мир Интеллекта","plate":"Р 099 ЕЕ 197","num":99,"model":"Lixiang","color":"","driver":"Барели Рома","org":"Мир Интеллекта","phone":"8-969-122-27-70","note":"Ребенок: Барели Наоми Левиевна"},
+      {"list":"Мир Интеллекта","plate":"Х 101 СР 777","num":101,"model":"Хендай стерекс","color":"","driver":"Талбон Латифходжаевич","org":"Мир Интеллекта","phone":"8-904-016-72-52","note":"Ребенок: Ханакаева Диора"},
+      {"list":"21 пост (основной)","plate":"Е 104 КС 550","num":104,"model":"Солярис","color":"","driver":"","org":"","phone":"","note":""},
+      {"list":"Мир Интеллекта","plate":"Х 108 ОА 777","num":108,"model":"Хендай","color":"","driver":"Чернина Мария Юрьевна","org":"Мир Интеллекта","phone":"8-919-994-00-24","note":"Ребенок: Борисов Михаил"},
+      {"list":"21 пост (основной)","plate":"Р 109 ХВ 716","num":109,"model":"Вояж","color":"","driver":"Ешива","org":"","phone":"","note":""},
+      {"list":"Мир Интеллекта","plate":"К 111 КО 197","num":111,"model":"Мерседес","color":"","driver":"Крюков Сергей","org":"Мир Интеллекта","phone":"8-985-736-28-77","note":"Ребенок: Мирелли Мия Михайловна"},
+      {"list":"Мир Интеллекта","plate":"У 111 СТ 199","num":111,"model":"Мерседес","color":"","driver":"Ефимов Александр","org":"Мир Интеллекта","phone":"8-985-736-28-77","note":"Ребенок: Мирелли Мия Михайловна"},
+      {"list":"21 пост (основной)","plate":"Х 112 ТВ 799","num":112,"model":"Мерседес","color":"","driver":"Р. Лазар","org":"Офис Лазара","phone":"","note":"Без досмотра"},
+      {"list":"Авто Бороды","plate":"Х112ТВ 799","num":112,"model":"Мерседес раввина Лазара","color":"","driver":"раввин Лазар","org":"Борода / Лазар","phone":"","note":""},
+      {"list":"21 пост (основной)","plate":"Р 113 УУ 197","num":113,"model":"Ниссан Теана","color":"черная","driver":"Мендел Мондшайн","org":"","phone":"","note":""},
+      {"list":"21 пост (основной)","plate":"Х 113 ХК 790","num":113,"model":"БМВ Х5","color":"","driver":"","org":"Офис Бороды","phone":"","note":"Без досмотра"},
+      {"list":"Авто Бороды","plate":"Х113ХК 790","num":113,"model":"БМВ Х5","color":"","driver":"","org":"Борода","phone":"","note":""},
+      {"list":"21 пост (основной)","plate":"Р 114 РМ 790","num":114,"model":"Лада Ларгус","color":"черная","driver":"Сад Будущего","org":"","phone":"","note":""},
+      {"list":"21 пост (основной)","plate":"К 116 УР 777","num":116,"model":"Хендай Солярис","color":"","driver":"Офис Бороды","org":"","phone":"","note":""},
+      {"list":"21 пост (основной)","plate":"Р 116 ТА","num":116,"model":"Ниссан","color":"","driver":"","org":"","phone":"","note":""},
+      {"list":"21 пост (основной)","plate":"О 117 КС 797","num":117,"model":"Киа","color":"","driver":"","org":"","phone":"","note":""},
+      {"list":"21 пост (основной)","plate":"В 121 АА 799","num":121,"model":"Хюндай Туксон","color":"","driver":"","org":"","phone":"","note":""},
+      {"list":"Хедер Менахем","plate":"Е 121 СУ 790","num":121,"model":"Тойота","color":"","driver":"Калужский Дмитрий Сергеевич","org":"Хедер Менахем","phone":"8(915) 173 4909","note":"Фамилия: Звулуни"},
+      {"list":"21 пост (основной)","plate":"С 123 СВ","num":123,"model":"ЛИ 9","color":"","driver":"","org":"","phone":"","note":"Без досмотра"},
+      {"list":"Мир Интеллекта","plate":"С 123 СВ 777","num":123,"model":"Лисянг","color":"","driver":"Соломонов Роман Александрович","org":"Мир Интеллекта","phone":"8-968-622-06-67","note":"Ребенок: Соломонов Рафаэль"},
+      {"list":"Мир Интеллекта","plate":"Х 123 ЕМ 797","num":123,"model":"Нисан","color":"","driver":"Исаева Елизавета Рафаэльевна","org":"Мир Интеллекта","phone":"8-999-870-97-70","note":"Ребенок: Исаев Менахем Альбертович"},
+      {"list":"21 пост (основной)","plate":"127 СО2 77","num":127,"model":"Эксид","color":"","driver":"посольство","org":"","phone":"","note":"Без досмотра"},
+      {"list":"Музей (постоянные пропуска)","plate":"Р127УВ177","num":127,"model":"Nissan","color":"","driver":"","org":"Музей","phone":"","note":""},
+      {"list":"Хедер Менахем","plate":"К 133 СМ 797","num":133,"model":"Фав","color":"","driver":"Шубаев Михаил Юрьевич","org":"Хедер Менахем","phone":"8(966) 045 8855","note":"Фамилия: Соломонов"},
+      {"list":"Мир Интеллекта","plate":"У 136 ТМ 799","num":136,"model":"БМВ","color":"","driver":"Джанашвили Лана Георгиевна","org":"Мир Интеллекта","phone":"8-962-918-56-19","note":"Ребенок: Косашвили Эли"},
+      {"list":"21 пост (основной)","plate":"Р 137 РТ 797","num":137,"model":"Джели Манджаро","color":"","driver":"Моти Вайсберг","org":"","phone":"","note":"Без досмотра"},
+      {"list":"Мир Интеллекта","plate":"С 145 ВХ 797","num":145,"model":"Шкода Кодиак","color":"","driver":"Лалаев Ирмия Славикович","org":"Мир Интеллекта","phone":"8-976-815-88-88","note":"Ребенок: Лалаев Натаниэль Ирмияевич"},
+      {"list":"Мир Интеллекта","plate":"Е 146 ХР 797","num":146,"model":"Range Rover","color":"","driver":"Керимов Орхан","org":"Мир Интеллекта","phone":"8-926-055-25-05","note":"Ребенок: Гургов Аарон"},
+      {"list":"21 пост (основной)","plate":"В 152 УТ 797","num":152,"model":"Хюндай","color":"","driver":"Ривка и Янки Кляйн","org":"","phone":"","note":""},
+      {"list":"Музей (постоянные пропуска)","plate":"А154МР 77","num":154,"model":"Mercedes","color":"","driver":"","org":"Музей","phone":"","note":"(без досмотра) ?"},
+      {"list":"Мир Интеллекта","plate":"Р 154 ХА 797","num":154,"model":"VOLVO","color":"","driver":"Загорская Анастасия Александровна","org":"Мир Интеллекта","phone":"8-926-590-83-04","note":"Ребенок: Загорская Мария Евгеньевна"},
+      {"list":"Мир Интеллекта","plate":"А 158 АА 178","num":158,"model":"БМВ","color":"","driver":"Хихинашвили Николай Тамазович","org":"Мир Интеллекта","phone":"8-985-990-98-98","note":"Ребенок: Хихинашвили Аманда"},
+      {"list":"21 пост (основной)","plate":"В 162 ОК 777","num":162,"model":"Форд транзит","color":"","driver":"","org":"","phone":"","note":""},
+      {"list":"21 пост (основной)","plate":"Т 164 СР","num":164,"model":"","color":"","driver":"","org":"","phone":"","note":"Без досмотра"},
+      {"list":"Музей (постоянные пропуска)","plate":"Т164СР 799","num":164,"model":"VW caddy","color":"","driver":"","org":"Музей","phone":"","note":""},
+      {"list":"21 пост (основной)","plate":"У 164 СА 797","num":164,"model":"Чанган","color":"","driver":"Александр помощниц","org":"","phone":"","note":"Без досмотра"},
+      {"list":"Мир Интеллекта","plate":"Х 166 СМ 777","num":166,"model":"Мерседес","color":"","driver":"Степанова Елена Владимировна","org":"Мир Интеллекта","phone":"8-903-363-57-73","note":"Ребенок: Баренфельд Симона Анатольевна"},
+      {"list":"Мир Интеллекта","plate":"У 170 УМ 799","num":170,"model":"Митсубиси аутлендер","color":"","driver":"Ильяева Лиора Эдуардовна","org":"Мир Интеллекта","phone":"8-903-176-25-75","note":"Ребенок: Ильяев Янив Натанович"},
+      {"list":"21 пост (основной)","plate":"Т 175 ТА 197","num":175,"model":"Хендай Старекс","color":"","driver":"","org":"Бронная Дети","phone":"","note":"Без досмотра"},
+      {"list":"21 пост (основной)","plate":"Е 177 КС 33","num":177,"model":"Вольво","color":"","driver":"","org":"","phone":"","note":""},
+      {"list":"21 пост (основной)","plate":"У 177 ТН 197","num":177,"model":"BMW","color":"","driver":"Барлас Дина","org":"Офис Дины Барлас","phone":"","note":"Без досмотра"},
+      {"list":"21 пост (основной)","plate":"Х 178 УС 790","num":178,"model":"Омода","color":"","driver":"","org":"","phone":"","note":""},
+      {"list":"21 пост (основной)","plate":"В 179 НТ 07","num":179,"model":"Хюндай","color":"","driver":"","org":"","phone":"","note":""},
+      {"list":"Мир Интеллекта","plate":"В 179 НТ 07","num":179,"model":"Hyundai","color":"","driver":"Сапугин Виктор Владиславович","org":"Мир Интеллекта","phone":"8-977-588-90-04","note":"Ребенок: Давыдов Герман"},
+      {"list":"Мир Интеллекта","plate":"А 180 КТ 977","num":180,"model":"Ауди","color":"","driver":"Шкловер Дмитрий Борисович","org":"Мир Интеллекта","phone":"8-985-773-76-66","note":"Ребенок: Шкловер Дафна"},
+      {"list":"21 пост (основной)","plate":"Н 182 ТЕ 777","num":182,"model":"","color":"","driver":"","org":"","phone":"","note":""},
+      {"list":"Мир Интеллекта","plate":"Е 185 АЕ 977","num":185,"model":"Хондай","color":"","driver":"Вера","org":"Мир Интеллекта","phone":"8-916-158-98-68","note":"Ребенок: Гольцман Яков"},
+      {"list":"Хедер Менахем","plate":"Е 185 АЕ 977","num":185,"model":"Хендай Крета","color":"","driver":"Темкина Вера Семеновна","org":"Хедер Менахем","phone":"8(916) 158 9868","note":"Фамилия: Гольцман"},
+      {"list":"21 пост (основной)","plate":"С 185 НЕ 797","num":185,"model":"Форд","color":"","driver":"Рути Черток","org":"","phone":"","note":""},
+      {"list":"21 пост (основной)","plate":"А 186 СУ 797","num":186,"model":"Опель","color":"","driver":"Денисов","org":"Месивта","phone":"","note":"Без досмотра"},
+      {"list":"21 пост (основной)","plate":"Е 191 УЕ 777","num":191,"model":"Хюндай","color":"белый","driver":"Алла Евгеньевна","org":"Месивта","phone":"","note":""},
+      {"list":"21 пост (основной)","plate":"Е 193 НН 750","num":193,"model":"Тойота РАВ 4","color":"","driver":"Айзман","org":"Месивта","phone":"","note":"Без досмотра"},
+      {"list":"21 пост (основной)","plate":"Х 194 НУ 777","num":194,"model":"Шевролет","color":"","driver":"","org":"","phone":"","note":""},
+      {"list":"21 пост (основной)","plate":"А 195 МН 797","num":195,"model":"Хюндай Палисард","color":"","driver":"Семья Кошоев","org":"","phone":"","note":"Без досмотра"},
+      {"list":"21 пост (основной)","plate":"А 195 СО 799","num":195,"model":"Фольксваген","color":"","driver":"","org":"","phone":"","note":""},
+      {"list":"21 пост (основной)","plate":"Х 197 ВЕ 797","num":197,"model":"","color":"","driver":"Дина Барлас","org":"","phone":"","note":""},
+      {"list":"Мир Интеллекта","plate":"В 202 СР 797","num":202,"model":"Мерседес","color":"","driver":"Ягодин Дмитрий Александрович","org":"Мир Интеллекта","phone":"8-963-797-33-59","note":"Ребенок: Ханакаева Диора"},
+      {"list":"21 пост (основной)","plate":"Р 208 ЕА","num":208,"model":"Тенет","color":"","driver":"","org":"","phone":"","note":"С досмотром"},
+      {"list":"Хедер Менахем","plate":"С 218 ХН 777","num":218,"model":"Хендай Н-1","color":"","driver":"Мустафаев Эльер Шавкатович","org":"Хедер Менахем","phone":"8(912) 025 0578","note":"Фамилия: Мондшайн"},
+      {"list":"21 пост (основной)","plate":"Н 220 ХО","num":220,"model":"Форд","color":"","driver":"Таль Грассман","org":"","phone":"","note":"Без досмотра"},
+      {"list":"Мир Интеллекта","plate":"У 223 КС 797","num":223,"model":"Xiaomi","color":"","driver":"Баазов Шота Александрович","org":"Мир Интеллекта","phone":"8-903-758-18-18","note":"Ребенок: Баазов Ариэль"},
+      {"list":"Хедер Менахем","plate":"06 KG 231 ABI","num":231,"model":"Киа","color":"","driver":"Максытов Мамасадык","org":"Хедер Менахем","phone":"8(999) 089 7006","note":"Фамилия: Дерен"},
+      {"list":"Мир Интеллекта","plate":"Е 232 ВК 197","num":232,"model":"Тойота","color":"","driver":"Яцюк Олег Иванович","org":"Мир Интеллекта","phone":"8-916-172-18-18","note":"Ребенок: Яцюк Ирина"},
+      {"list":"21 пост (основной)","plate":"О 234 АН 977","num":234,"model":"Ауди","color":"","driver":"","org":"","phone":"","note":""},
+      {"list":"Хедер Менахем","plate":"О 238 РС 799","num":238,"model":"Ауди Q5","color":"","driver":"Авдеева Эльза Карловна","org":"Хедер Менахем","phone":"8(915) 096 1818","note":"Фамилия: Якубов; Дневной интервал 13:00-15:00"},
+      {"list":"Музей (постоянные пропуска)","plate":"5241ХА 77","num":241,"model":"Triumph","color":"","driver":"","org":"Музей","phone":"","note":""},
+      {"list":"21 пост (основной)","plate":"У 241 ЕН 799","num":241,"model":"Мазерати","color":"","driver":"","org":"","phone":"","note":""},
+      {"list":"Хедер Менахем","plate":"У 241 ЕН 799","num":241,"model":"Мазератти","color":"","driver":"Любавин Андрей Владимирович","org":"Хедер Менахем","phone":"8(963) 999 3632","note":"Фамилия: Элазаров"},
+      {"list":"21 пост (основной)","plate":"О 247 ВН 550","num":247,"model":"Форд Транзит","color":"","driver":"Истра","org":"","phone":"","note":""},
+      {"list":"Мир Интеллекта","plate":"О 247 НС 797","num":247,"model":"ЛИ 9","color":"","driver":"Иссомудин","org":"Мир Интеллекта","phone":"8-968-917-75-15","note":"Ребенок: Гольцман Яков"},
+      {"list":"Хедер Менахем","plate":"О 247 НС 797","num":247,"model":"Ли 9","color":"","driver":"Борисов Максим Владимирович","org":"Хедер Менахем","phone":"8(923) 443 4547","note":"Фамилия: Гольцман"},
+      {"list":"Мир Интеллекта","plate":"В 252 СХ 797","num":252,"model":"Мерседес","color":"","driver":"Иосифова Рахель","org":"Мир Интеллекта","phone":"8-967-159-74-29","note":"Ребенок: Иосифова Яэль"},
+      {"list":"21 пост (основной)","plate":"С 254 РВ 797","num":254,"model":"Лексус","color":"","driver":"Борода А.М","org":"","phone":"","note":"Без досмотра"},
+      {"list":"21 пост (основной)","plate":"У 257 ХК 797","num":257,"model":"Zeekr 009","color":"","driver":"Р. Лазар","org":"","phone":"","note":"Без досмотра"},
+      {"list":"Мир Интеллекта","plate":"У 266 КХ 797","num":266,"model":"chery tiggo","color":"","driver":"Барели Нана Давидовна","org":"Мир Интеллекта","phone":"8-962-900-21-25","note":"Ребенок: Барели Наоми Левиевна"},
+      {"list":"21 пост (основной)","plate":"О 269 РН 177","num":269,"model":"Мерседес","color":"черный","driver":"Р. Лазар","org":"Офис Р. Лазара","phone":"","note":"Без досмотра"},
+      {"list":"21 пост (основной)","plate":"О 276 ВК 976","num":276,"model":"Шевролет","color":"","driver":"","org":"","phone":"","note":""},
+      {"list":"Хедер Менахем","plate":"О 279 АТ 196","num":279,"model":"Тойота","color":"","driver":"Устьянцев Павел Евгеньевич","org":"Хедер Менахем","phone":"8(966) 013 5883","note":"Фамилия: Устьянцев"},
+      {"list":"Мир Интеллекта","plate":"С 280 ОР 76","num":280,"model":"SUBARU","color":"","driver":"Загорский Евгений Константинович","org":"Мир Интеллекта","phone":"8-905-634-78-78","note":"Ребенок: Загорская Мария Евгеньевна"},
+      {"list":"Мир Интеллекта","plate":"А 281 АН 977","num":281,"model":"Черри","color":"","driver":"Бен-Габриэль Илья Гаврилович","org":"Мир Интеллекта","phone":"8-966-118-27-70","note":"Ребенок: Бен-Габриэль Даниэла"},
+      {"list":"Мир Интеллекта","plate":"Р 281 ЕХ 70","num":281,"model":"Хендай стерекс","color":"","driver":"Шестакова Татьяна Владимировна","org":"Мир Интеллекта","phone":"8-903-951-44-24","note":"Ребенок: Шарабуров Аврам"},
+      {"list":"21 пост (основной)","plate":"В 285 ТН","num":285,"model":"Мазда","color":"","driver":"","org":"","phone":"","note":""},
+      {"list":"Музей (постоянные пропуска)","plate":"О288ХР 77","num":288,"model":"Mercedes","color":"","driver":"","org":"Музей","phone":"","note":""},
+      {"list":"21 пост (основной)","plate":"У 288 МВ 977","num":288,"model":"Автобус","color":"","driver":"Пансион","org":"","phone":"","note":""},
+      {"list":"21 пост (основной)","plate":"Р 290 ТА 797","num":290,"model":"Хавал","color":"","driver":"","org":"","phone":"","note":""},
+      {"list":"21 пост (основной)","plate":"Р 291 НН","num":291,"model":"Хюндай","color":"","driver":"Офис Бороды","org":"","phone":"","note":"Без досмотра"},
+      {"list":"21 пост (основной)","plate":"М 294 НЕ","num":294,"model":"Митсубиси","color":"","driver":"","org":"","phone":"","note":""},
+      {"list":"21 пост (основной)","plate":"У 294 ЕЕ 71","num":294,"model":"","color":"","driver":"","org":"","phone":"","note":""},
+      {"list":"21 пост (основной)","plate":"Х 299 ХО 77","num":299,"model":"KIA спортедж","color":"темно-сер","driver":"Борода А.М.","org":"Офис Бороды АМ","phone":"","note":"Без досмотра"},
+      {"list":"21 пост (основной)","plate":"Е 300 КЕ","num":300,"model":"Хюндай","color":"","driver":"Общежитие","org":"Круглосуточно","phone":"","note":"Без досмотра"},
+      {"list":"21 пост (основной)","plate":"Н 300 ХТ 77","num":300,"model":"BMW X4","color":"","driver":"Дина Барлас","org":"Офис Дины Барлас","phone":"","note":"Без досмотра"},
+      {"list":"Мир Интеллекта","plate":"А 303 КС 777","num":303,"model":"Киа","color":"","driver":"Попович Евгений Профирович","org":"Мир Интеллекта","phone":"8-917-974-27-91","note":"Ребенок: Израилов Лиран Ренуарович"},
+      {"list":"Мир Интеллекта","plate":"Х 303 СМ 797","num":303,"model":"Вояк","color":"","driver":"Попович Евгений Профирович","org":"Мир Интеллекта","phone":"8-917-974-27-91","note":"Ребенок: Израилов Лиран Ренуарович"},
+      {"list":"21 пост (основной)","plate":"Е 308 КВ 977","num":308,"model":"Мерседес","color":"","driver":"Ави Гейдж","org":"","phone":"","note":""},
+      {"list":"21 пост (основной)","plate":"А 314 ОК 777","num":314,"model":"Форд транзит","color":"","driver":"","org":"","phone":"","note":""},
+      {"list":"21 пост (основной)","plate":"К 327 ЕС 156","num":327,"model":"шкода","color":"","driver":"Йосеф Марзель","org":"","phone":"","note":""},
+      {"list":"21 пост (основной)","plate":"Т 328 МК 977","num":328,"model":"Лада Ларгус","color":"","driver":"","org":"","phone":"","note":""},
+      {"list":"21 пост (основной)","plate":"329","num":329,"model":"Шкода","color":"белая","driver":"","org":"","phone":"","note":"С досмотром"},
+      {"list":"Мир Интеллекта","plate":"А 330 ОМ 199","num":330,"model":"Ауди","color":"","driver":"Хана Симангаева Джумберовна","org":"Мир Интеллекта","phone":"8-917-587-22-66","note":"Ребенок: Симангаев Давид Элазар"},
+      {"list":"21 пост (основной)","plate":"Х 331 СВ 777","num":331,"model":"Киа Венга","color":"","driver":"","org":"","phone":"","note":""},
+      {"list":"Хедер Менахем","plate":"К 340 КК 26","num":340,"model":"Инфинити EX35","color":"","driver":"Соломонова Меланья Валерьевна","org":"Хедер Менахем","phone":"8(925)404 0972","note":"Фамилия: Соломонов"},
+      {"list":"Хедер Менахем","plate":"Е 348 НУ 797","num":348,"model":"Дунфен","color":"","driver":"Ярихметова Надежда Викторовна","org":"Хедер Менахем","phone":"8(925)166 4240","note":"Фамилия: Дерен"},
+      {"list":"21 пост (основной)","plate":"355","num":355,"model":"Ларгус","color":"серебрис","driver":"Шаарей Цедек","org":"","phone":"","note":""},
+      {"list":"21 пост (основной)","plate":"Н 358 УО 799","num":358,"model":"Ларгус","color":"","driver":"Служба Экспл","org":"","phone":"","note":""},
+      {"list":"21 пост (основной)","plate":"Т 362 УХ 797","num":362,"model":"Тесла Кибертрак","color":"","driver":"Борода А.М","org":"","phone":"","note":"Без досмотра"},
+      {"list":"Авто Бороды","plate":"Т362УХ 797","num":362,"model":"Тесла кибертрак","color":"","driver":"","org":"Борода","phone":"","note":""},
+      {"list":"Мир Интеллекта","plate":"Т 365 ТР 777","num":365,"model":"Порше","color":"","driver":"Еликашвили Михаил","org":"Мир Интеллекта","phone":"8-910-481-44-45","note":"Ребенок: Еликашвили Моника"},
+      {"list":"21 пост (основной)","plate":"Е 366 КУ","num":366,"model":"Киа","color":"","driver":"","org":"","phone":"","note":""},
+      {"list":"21 пост (основной)","plate":"370","num":370,"model":"Митсубиси","color":"","driver":"","org":"","phone":"","note":""},
+      {"list":"Музей (постоянные пропуска)","plate":"А370МР 77","num":370,"model":"Mercedes","color":"","driver":"","org":"Музей","phone":"","note":"(без досмотра) ?"},
+      {"list":"21 пост (основной)","plate":"О 370 КК 797","num":370,"model":"Хюндай Сантафе","color":"","driver":"Семья Кошаев","org":"","phone":"","note":"Без досмотра"},
+      {"list":"21 пост (основной)","plate":"378","num":378,"model":"","color":"","driver":"Довид Борода","org":"","phone":"","note":"Без досмотра"},
+      {"list":"21 пост (основной)","plate":"Т 378 МК 977","num":378,"model":"Ларгус","color":"","driver":"","org":"","phone":"","note":""},
+      {"list":"Мир Интеллекта","plate":"Е 385 ЕХ 797","num":385,"model":"Лексус","color":"","driver":"Юсифова Оксана","org":"Мир Интеллекта","phone":"8-915-215-96-97","note":"Ребенок: Юсифова Адина"},
+      {"list":"Хедер Менахем","plate":"Р 385 ХУ 750","num":385,"model":"Киа","color":"","driver":"Лебедева Анна","org":"Хедер Менахем","phone":"8(916) 555 7854","note":"Фамилия: Лебедев"},
+      {"list":"21 пост (основной)","plate":"В 387 НР 750","num":387,"model":"Мерседес","color":"","driver":"","org":"","phone":"","note":""},
+      {"list":"Хедер Менахем","plate":"В 387 НР 750","num":387,"model":"Хендай Старекс","color":"","driver":"Друц Йудит","org":"Хедер Менахем","phone":"8(903)721 5715","note":"Фамилия: Друц"},
+      {"list":"Хедер Менахем","plate":"К 388 РУ 33","num":388,"model":"Хендай i40","color":"","driver":"Никишин Александр Николаевич","org":"Хедер Менахем","phone":"8(968) 803 5450","note":"Фамилия: Никишин"},
+      {"list":"Мир Интеллекта","plate":"Т 398 НТ 797","num":398,"model":"Киа карнавал","color":"","driver":"Лукашевич Дмитрий Вячеславович","org":"Мир Интеллекта","phone":"8-903-195-96-64","note":"Ребенок: Михайлова Амалия"},
+      {"list":"21 пост (основной)","plate":"С 400 АМ 997","num":400,"model":"Ролс Ройс","color":"","driver":"Борода А.М","org":"","phone":"","note":"Без досмотра"},
+      {"list":"21 пост (основной)","plate":"С 400 УО 797","num":400,"model":"Тойота Хайас","color":"","driver":"Борода А.М","org":"","phone":"","note":"Без досмотра"},
+      {"list":"Авто Бороды","plate":"С 400 УО 797","num":400,"model":"Тойота Хайас","color":"","driver":"","org":"Борода","phone":"","note":"Рукописная строка сверху"},
+      {"list":"21 пост (основной)","plate":"Т 400 АО 977","num":400,"model":"Мерседес","color":"","driver":"Борода А.М","org":"","phone":"","note":""},
+      {"list":"Авто Бороды","plate":"Т400АО 977","num":400,"model":"Мерседес Инна","color":"Инна","driver":"","org":"Борода","phone":"","note":""},
+      {"list":"Авто Бороды","plate":"Х400МК 177","num":400,"model":"Лексус Инна","color":"Инна","driver":"","org":"Борода","phone":"","note":""},
+      {"list":"21 пост (основной)","plate":"Х400МК177","num":400,"model":"Лексус","color":"","driver":"Борода А.М","org":"","phone":"","note":"Без досмотра"},
+      {"list":"Мир Интеллекта","plate":"В 405 ХЕ 09","num":405,"model":"Hongqi h5","color":"","driver":"Иосифова Рахель","org":"Мир Интеллекта","phone":"8-967-159-74-29","note":"Ребенок: Иосифова Яэль"},
+      {"list":"21 пост (основной)","plate":"О 405 ТС 790","num":405,"model":"Chery Tiggo 8","color":"","driver":"Борода А.М","org":"","phone":"","note":"Без досмотра"},
+      {"list":"21 пост (основной)","plate":"Р 408 ТА","num":408,"model":"ЛИ 6","color":"","driver":"","org":"","phone":"","note":""},
+      {"list":"Мир Интеллекта","plate":"К 414 МР 77","num":414,"model":"Ауди А 8","color":"","driver":"Ираклий","org":"Мир Интеллекта","phone":"8-964-778-90-08","note":"Ребенок: Парлагашвили Беньямин"},
+      {"list":"Музей (постоянные пропуска)","plate":"С417МС 799","num":417,"model":"Mercedes","color":"","driver":"","org":"Музей","phone":"","note":"Вычеркнуто"},
+      {"list":"21 пост (основной)","plate":"М 427 СЕ 797","num":427,"model":"Мерседес","color":"","driver":"Борода АМ","org":"","phone":"","note":"Без досмотра"},
+      {"list":"Мир Интеллекта","plate":"Е 435 ХХ 797","num":435,"model":"VOYAH","color":"","driver":"Родькин Вадим Владимирович","org":"Мир Интеллекта","phone":"8-920-047-36-78","note":"Ребенок: Шаулова Лиэль Аркадьевна"},
+      {"list":"Мир Интеллекта","plate":"Е 439 КР 777","num":439,"model":"Лексус","color":"","driver":"Гилядова Галина","org":"Мир Интеллекта","phone":"8-926-141-44-88","note":"Ребенок: Гилядов Даниэль"},
+      {"list":"Мир Интеллекта","plate":"Е 440 ЕН 550","num":440,"model":"Чери","color":"","driver":"Сима Саги Юрьевич","org":"Мир Интеллекта","phone":"8-915-188-88-86","note":"Ребенок: Гутман Лея"},
+      {"list":"21 пост (основной)","plate":"А 449 ОО 77","num":449,"model":"БМВ","color":"","driver":"","org":"","phone":"","note":""},
+      {"list":"21 пост (основной)","plate":"О 449 ОВ 199","num":449,"model":"Хюндай","color":"","driver":"","org":"","phone":"","note":""},
+      {"list":"21 пост (основной)","plate":"У 454 АР 750","num":454,"model":"Nissan","color":"","driver":"Моше Рохлин","org":"Общежитие","phone":"","note":"Без досмотра"},
+      {"list":"21 пост (основной)","plate":"Р 458 ТТ","num":458,"model":"Лада Ларгус","color":"","driver":"","org":"","phone":"","note":""},
+      {"list":"21 пост (основной)","plate":"Р 462 АО 997","num":462,"model":"Вояж","color":"","driver":"","org":"","phone":"","note":""},
+      {"list":"Хедер Менахем","plate":"Т 463 ОМ 799","num":463,"model":"Форд Эксплорер","color":"","driver":"Блох Евгения Александровна","org":"Хедер Менахем","phone":"8(965) 247 2321","note":"Фамилия: Блох"},
+      {"list":"21 пост (основной)","plate":"В 468 РМ 797","num":468,"model":"Рэндж Ровер","color":"","driver":"Борода А. М","org":"","phone":"","note":"Без досмотра"},
+      {"list":"Авто Бороды","plate":"В468РМ 797","num":468,"model":"Range Rover","color":"","driver":"","org":"Борода","phone":"","note":""},
+      {"list":"21 пост (основной)","plate":"В 479 НМ 777","num":479,"model":"","color":"","driver":"","org":"Бейт Швидлер","phone":"","note":""},
+      {"list":"Хедер Менахем","plate":"В 479 НМ 777","num":479,"model":"Ниссан","color":"","driver":"Гаевой Дмитрий Васильевич","org":"Хедер Менахем","phone":"8(913) 959 9995","note":"Фамилия: Розенфельд"},
+      {"list":"21 пост (основной)","plate":"К 481 ХТ 777","num":481,"model":"","color":"","driver":"","org":"Бейт Швидлер","phone":"","note":""},
+      {"list":"21 пост (основной)","plate":"В 484 ЕВ 799","num":484,"model":"Ниссан","color":"","driver":"Мойше Барух","org":"Месивта","phone":"","note":"Без досмотра"},
+      {"list":"21 пост (основной)","plate":"Т 487 ТА 790","num":487,"model":"Форд","color":"","driver":"","org":"","phone":"","note":""},
+      {"list":"Мир Интеллекта","plate":"Н 490 ВВ 177","num":490,"model":"Лексус","color":"","driver":"Зоар Дженни","org":"Мир Интеллекта","phone":"8-903-508-24-21","note":"Ребенок: Зоар Рейчел"},
+      {"list":"21 пост (основной)","plate":"С 492 ЕТ 777","num":492,"model":"Хавер Н5","color":"","driver":"","org":"","phone":"","note":""},
+      {"list":"Мир Интеллекта","plate":"М 498 ХР 777","num":498,"model":"Лексус","color":"","driver":"Шамаилов Нисан","org":"Мир Интеллекта","phone":"8-903-774-45-39","note":"Ребенок: Шамаилова Татьяна"},
+      {"list":"21 пост (основной)","plate":"Н 504 МХ","num":504,"model":"Опель Зафира","color":"","driver":"","org":"","phone":"","note":""},
+      {"list":"21 пост (основной)","plate":"А 507 НО 977","num":507,"model":"","color":"","driver":"","org":"","phone":"","note":""},
+      {"list":"Мир Интеллекта","plate":"М 507 МВ 797","num":507,"model":"БМВ","color":"","driver":"Вагин Сергей Сергеевич","org":"Мир Интеллекта","phone":"8-976-918-13-43","note":"Ребенок: Аннина Ирина"},
+      {"list":"Мир Интеллекта","plate":"А 508 КТ 777","num":508,"model":"Лексус","color":"","driver":"Малышев Сергей Александрович","org":"Мир Интеллекта","phone":"8-906-795-93-83","note":"Ребенок: Исакова Мишель"},
+      {"list":"Хедер Менахем","plate":"Е 525 ВУ 977","num":525,"model":"Черри","color":"","driver":"Акиваева Мирьям","org":"Хедер Менахем","phone":"8(925)448 0145","note":"Фамилия: Акиваев"},
+      {"list":"Хедер Менахем","plate":"М 525 ХС 799","num":525,"model":"Киа Сид","color":"","driver":"Зусьман Анна Ароновна","org":"Хедер Менахем","phone":"8(926) 558 3618","note":"Фамилия: Венгеровский"},
+      {"list":"Хедер Менахем","plate":"Х 526 АС 198","num":526,"model":"Хавал М6","color":"","driver":"Михельсон Лев Сергеевич / Цуканов Сергей Сергеевич","org":"Хедер Менахем","phone":"8(993) 613 2200 / 8(965) 260 0009","note":"Фамилия: Михельсон"},
+      {"list":"Музей (постоянные пропуска)","plate":"С536УВ 197","num":536,"model":"BMW","color":"","driver":"","org":"Музей","phone":"","note":""},
+      {"list":"21 пост (основной)","plate":"В 547 ОХ 799","num":547,"model":"Тойота","color":"","driver":"Вайсберг Наоми","org":"","phone":"","note":""},
+      {"list":"21 пост (основной)","plate":"А 556 МО 77","num":556,"model":"мерседес","color":"черный","driver":"Борода А.М","org":"Офис Бороды АМ","phone":"","note":"Без досмотра"},
+      {"list":"Авто Бороды","plate":"А556МО 77","num":556,"model":"Мерседес V-class","color":"","driver":"","org":"Борода","phone":"","note":""},
+      {"list":"Мир Интеллекта","plate":"Р 561 РС 797","num":561,"model":"Lixiang L9","color":"","driver":"Биняминов Ибраим","org":"Мир Интеллекта","phone":"8-905-572-07-74","note":"Ребенок: Биняминова Малка"},
+      {"list":"Хедер Менахем","plate":"У 563 МТ 977","num":563,"model":"Пежо","color":"","driver":"Маркович Менахем Мендл","org":"Хедер Менахем","phone":"8(985) 974 9463","note":"Фамилия: Маркович"},
+      {"list":"21 пост (основной)","plate":"К 564 НР 799","num":564,"model":"Киа","color":"","driver":"Дина Барлас","org":"","phone":"","note":""},
+      {"list":"21 пост (основной)","plate":"С 567 ММ 799","num":567,"model":"Хендай Солярис","color":"","driver":"","org":"","phone":"89269617120 Нарад","note":""},
+      {"list":"21 пост (основной)","plate":"Т 569 ХХ 797","num":569,"model":"Черри Тиго 8","color":"","driver":"Моти Вайсберг","org":"МЕОЦ","phone":"","note":"Без досмотра"},
+      {"list":"Мир Интеллекта","plate":"К 578 ЕМ 977","num":578,"model":"Хавал","color":"","driver":"Тарасевич Анастасия Вадимовна","org":"Мир Интеллекта","phone":"8-903-598-15-88","note":"Ребенок: Тарасевич Лиэль"},
+      {"list":"21 пост (основной)","plate":"А 582 ЕР 177","num":582,"model":"додж караван","color":"","driver":"Хава Борода","org":"Офис Бороды АМ","phone":"","note":"Без досмотра"},
+      {"list":"Мир Интеллекта","plate":"М 585 ТК 159","num":585,"model":"Мерседес","color":"","driver":"Багия Заур","org":"Мир Интеллекта","phone":"8-917-545-09-09","note":"Ребенок: Биняминова Орли"},
+      {"list":"21 пост (основной)","plate":"М 586 ТХ 777","num":586,"model":"лексус","color":"","driver":"","org":"","phone":"","note":"Без досмотра"},
+      {"list":"21 пост (основной)","plate":"К 588 СЕ 799","num":588,"model":"Хендай","color":"","driver":"","org":"","phone":"","note":""},
+      {"list":"21 пост (основной)","plate":"Н 592 ВР 790","num":592,"model":"Ситроен","color":"","driver":"Хаим Озер","org":"Пансион","phone":"","note":"Без досмотра"},
+      {"list":"Мир Интеллекта","plate":"Р 592 ЕЕ 977","num":592,"model":"Gac gs8","color":"","driver":"Захаров Михаил Петрович","org":"Мир Интеллекта","phone":"8-916-342-54-98","note":"Ребенок: Исая Исай"},
+      {"list":"21 пост (основной)","plate":"Н 593 КТ 777","num":593,"model":"Шевроле","color":"","driver":"","org":"","phone":"","note":""},
+      {"list":"Мир Интеллекта","plate":"У 593 ЕУ 797","num":593,"model":"Киа карнивал","color":"","driver":"Кузнецов Анатолий","org":"Мир Интеллекта","phone":"8-926-440-08-08","note":"Ребенок: Акиваева Даниэла"},
+      {"list":"21 пост (основной)","plate":"В 597 АО 997","num":597,"model":"БМВ","color":"","driver":"","org":"Бейт Швидлер","phone":"","note":""},
+      {"list":"Хедер Менахем","plate":"О 597 НН 977","num":597,"model":"Белджи","color":"","driver":"Лебедева Валерия Александровна","org":"Хедер Менахем","phone":"8(916) 170 5578","note":"Фамилия: Лебедев"},
+      {"list":"21 пост (основной)","plate":"У 598 РО 777","num":598,"model":"Мерседес","color":"","driver":"","org":"","phone":"","note":""},
+      {"list":"21 пост (основной)","plate":"Е 616 ЕС 799","num":616,"model":"Черри","color":"","driver":"Борода","org":"","phone":"","note":"Без досмотра"},
+      {"list":"Мир Интеллекта","plate":"В 617 ОУ 799","num":617,"model":"Шкода","color":"","driver":"Стыскин Марк Михайлович","org":"Мир Интеллекта","phone":"8-903-512-46-56","note":"Ребенок: Стыскин Йосеф Михайлович"},
+      {"list":"21 пост (основной)","plate":"М 619 ХА 799","num":619,"model":"Нисан Кашкай","color":"","driver":"Эрнстон Лариса","org":"Общежитие","phone":"","note":"Без досмотра"},
+      {"list":"21 пост (основной)","plate":"У 619 СО 797","num":619,"model":"Хюндай","color":"","driver":"Офис Бороды АМ","org":"","phone":"","note":""},
+      {"list":"Авто Бороды","plate":"У619СО 797","num":619,"model":"Хендай Стария","color":"","driver":"","org":"Борода","phone":"","note":""},
+      {"list":"21 пост (основной)","plate":"А 624 КВ 177","num":624,"model":"Митсубиши","color":"","driver":"","org":"","phone":"","note":""},
+      {"list":"21 пост (основной)","plate":"О 626 АН 550","num":626,"model":"Лексус","color":"","driver":"","org":"","phone":"","note":""},
+      {"list":"Авто Бороды","plate":"О626АН 550","num":626,"model":"Лексус","color":"","driver":"","org":"Борода","phone":"","note":""},
+      {"list":"Мир Интеллекта","plate":"С 626 СЕ 777","num":626,"model":"Мерседес","color":"","driver":"Бузиашвили Анна","org":"Мир Интеллекта","phone":"8-903-737-08-49","note":"Ребенок: Бузиашвили Адина Эдуардовна"},
+      {"list":"Мир Интеллекта","plate":"Р 627 РВ 797","num":627,"model":"Lixiang","color":"","driver":"Юсупов Давид Темурович","org":"Мир Интеллекта","phone":"8-903-148-21-46","note":"Ребенок: Юсупов Тимур"},
+      {"list":"21 пост (основной)","plate":"629","num":629,"model":"Киа Рио","color":"","driver":"","org":"","phone":"","note":""},
+      {"list":"Хедер Менахем","plate":"В 629 АУ 977","num":629,"model":"Хавал","color":"","driver":"Курагин Роман Викторович","org":"Хедер Менахем","phone":"8(916) 904 2474","note":"Фамилия: Краснодомский"},
+      {"list":"Хедер Менахем","plate":"М 630 ЕХ 799","num":630,"model":"Лифан","color":"","driver":"Табачников Александр Михайлович","org":"Хедер Менахем","phone":"8(906) 799 8589","note":"Фамилия: Фридман"},
+      {"list":"21 пост (основной)","plate":"634","num":634,"model":"Киа Карнавал","color":"","driver":"Вилански Мендел","org":"","phone":"","note":"Без досмотра"},
+      {"list":"Хедер Менахем","plate":"А 635 ЕС 797","num":635,"model":"Хендай Палисад","color":"","driver":"Цатуров Дмитрий Никитич","org":"Хедер Менахем","phone":"8(936)329 9904","note":"Фамилия: Цатуров"},
+      {"list":"21 пост (основной)","plate":"Н 636 ВН 977","num":636,"model":"БМВ","color":"","driver":"","org":"","phone":"","note":""},
+      {"list":"21 пост (основной)","plate":"Р 636 СС 797","num":636,"model":"","color":"","driver":"Таль Гроссман","org":"","phone":"","note":"Без досмотра"},
+      {"list":"Хедер Менахем","plate":"К 637 НМ","num":637,"model":"Додж Караван","color":"","driver":"Ора Деркач","org":"Хедер Менахем","phone":"8(903) 112 0878","note":"Фамилия: Кубичек"},
+      {"list":"Мир Интеллекта","plate":"Х 639 НН 977","num":639,"model":"Гак","color":"","driver":"Кикозашвили Кока Иосифович","org":"Мир Интеллекта","phone":"8-903-501-66-35","note":"Ребенок: Голан Сигаль"},
+      {"list":"Мир Интеллекта","plate":"У 641 ЕЕ 977","num":641,"model":"Jack","color":"","driver":"Гафронов Абдурахим Расулович","org":"Мир Интеллекта","phone":"8-977-441-45-59","note":"Ребенок: Гургов Аарон"},
+      {"list":"Мир Интеллекта","plate":"Х 643 ЕМ 977","num":643,"model":"GAC","color":"","driver":"Амаев Диана Гершумовна","org":"Мир Интеллекта","phone":"8-925-679-89-92","note":"Ребенок: Амаев Михаэль"},
+      {"list":"21 пост (основной)","plate":"К 646 ОВ 197","num":646,"model":"Форд","color":"","driver":"Аркадий Федцин","org":"","phone":"","note":""},
+      {"list":"Мир Интеллекта","plate":"А 650 ХА 797","num":650,"model":"Voyah free","color":"","driver":"Пашаян Гаянэ","org":"Мир Интеллекта","phone":"8-909-908-28-41","note":"Ребенок: Балоян Марк"},
+      {"list":"21 пост (основной)","plate":"Р 652 РА 777","num":652,"model":"Toyota Rav4","color":"черный","driver":"Моти Вайсберг","org":"МЕОЦ","phone":"","note":"Без досмотра"},
+      {"list":"Хедер Менахем","plate":"Т 653 МН 977","num":653,"model":"Мицубиши","color":"","driver":"Бурш Эфраим","org":"Хедер Менахем","phone":"8(999) 713 9531","note":"Фамилия: Бурш"},
+      {"list":"Мир Интеллекта","plate":"С 658 УР 58","num":658,"model":"Хендай","color":"","driver":"Фузайлов Маркиэль Боруххаевич","org":"Мир Интеллекта","phone":"8-915-485-05-31","note":"Ребенок: Фузайлов Беньямин"},
+      {"list":"21 пост (основной)","plate":"Т 659 НР 77","num":659,"model":"Шкода","color":"","driver":"","org":"","phone":"","note":""},
+      {"list":"Хедер Менахем","plate":"О 660 ММ 777","num":660,"model":"NISSAN TEANA","color":"","driver":"Ильин Алексей Николаевич","org":"Хедер Менахем","phone":"89661457631","note":"Фамилия: Левиев"},
+      {"list":"21 пост (основной)","plate":"Лада 662","num":662,"model":"Лада Веста","color":"","driver":"Иосиф Вайсберг","org":"","phone":"","note":""},
+      {"list":"Мир Интеллекта","plate":"Р 663 МР 77","num":663,"model":"Мерседес V класс","color":"","driver":"Гилядова Галина","org":"Мир Интеллекта","phone":"8-926-141-44-88","note":"Ребенок: Гилядов Даниэль"},
+      {"list":"Мир Интеллекта","plate":"В 667 ТА 799","num":667,"model":"Мерседес GLS","color":"","driver":"Александр","org":"Мир Интеллекта","phone":"8-985-918-17-87","note":"Ребенок: Нахшунов Саадия"},
+      {"list":"21 пост (основной)","plate":"У 676 ТН 797","num":676,"model":"Хюндай","color":"","driver":"","org":"","phone":"","note":""},
+      {"list":"Мир Интеллекта","plate":"Т 678 УХ 777","num":678,"model":"Тойота","color":"","driver":"Андрей","org":"Мир Интеллекта","phone":"8-968-989-19-73","note":"Ребенок: Исаков Хаим"},
+      {"list":"Мир Интеллекта","plate":"Т 678 УХ 797","num":678,"model":"Тойота Камри","color":"","driver":"Исаков Захар Хаимович","org":"Мир Интеллекта","phone":"8-916-007-83-08","note":"Ребенок: Исакова Элиана"},
+      {"list":"21 пост (основной)","plate":"А 682 АА","num":682,"model":"Танк-500","color":"","driver":"Офис Бороды АМ","org":"Школа Месивта","phone":"","note":"Без досмотра"},
+      {"list":"Авто Бороды","plate":"А682ТН 797","num":682,"model":"ТАНК-500","color":"","driver":"","org":"Борода","phone":"","note":""},
+      {"list":"21 пост (основной)","plate":"У 682 АР 550","num":682,"model":"Кайя Е5","color":"","driver":"Дина Барлас","org":"","phone":"","note":""},
+      {"list":"Мир Интеллекта","plate":"Т 685 АО 997","num":685,"model":"Тойота","color":"","driver":"Кочмага Игорь Анатольевич","org":"Мир Интеллекта","phone":"8-916-297-53-31","note":"Ребенок: Фузайлов Беньямин"},
+      {"list":"21 пост (основной)","plate":"М 688 ХТ 199","num":688,"model":"Шкода","color":"","driver":"Кениг Элазар","org":"Общежитие","phone":"","note":""},
+      {"list":"Мир Интеллекта","plate":"Е 692 КК 799","num":692,"model":"БМВ","color":"","driver":"Барели Натали Робертовна","org":"Мир Интеллекта","phone":"8-980-199-59-17","note":"Ребенок: Барели Мишель"},
+      {"list":"21 пост (основной)","plate":"К 700 КК 97","num":700,"model":"Тойота","color":"","driver":"","org":"Пансион","phone":"","note":""},
+      {"list":"Мир Интеллекта","plate":"К 700 КК 97","num":700,"model":"Мерседес","color":"","driver":"Литвинов Иван Николаевич","org":"Мир Интеллекта","phone":"8-965-268-12-71","note":"Ребенок: Самойлова Жасмин"},
+      {"list":"21 пост (основной)","plate":"К 702 ХК 790","num":702,"model":"Ниссан","color":"","driver":"Борода","org":"","phone":"","note":"Без досмотра"},
+      {"list":"Хедер Менахем","plate":"Х 703 КТ 77","num":703,"model":"Тойота Сиенна","color":"","driver":"Вилански Мендл","org":"Хедер Менахем","phone":"8(909) 660 6255","note":"Фамилия: Вилански"},
+      {"list":"21 пост (основной)","plate":"706","num":706,"model":"ФОРД","color":"","driver":"Берл Лазар","org":"","phone":"","note":"Без досмотра"},
+      {"list":"Мир Интеллекта","plate":"А 707 ХХ 77","num":707,"model":"Hunday Sterex","color":"","driver":"Баглонов Хабибулло Давлат","org":"Мир Интеллекта","phone":"8-985-333-66-66","note":"Ребенок: Давыдов Адам"},
+      {"list":"Мир Интеллекта","plate":"Е 707 ОО 77","num":707,"model":"Hunday Sterex","color":"","driver":"Баглонов Хабибулло Давлат","org":"Мир Интеллекта","phone":"8-985-333-66-66","note":"Ребенок: Давыдов Адам"},
+      {"list":"Хедер Менахем","plate":"К 707 УТ 197","num":707,"model":"Хендай Старекс","color":"","driver":"Авдалян Крист","org":"Хедер Менахем","phone":"8(906) 066 6668","note":"Фамилия: Друц"},
+      {"list":"Хедер Менахем","plate":"К 707 УТ 197","num":707,"model":"Хендай Старекс","color":"","driver":"Авдалян Сос","org":"Хедер Менахем","phone":"","note":"Фамилия: Друц"},
+      {"list":"21 пост (основной)","plate":"С 707 МС 977","num":707,"model":"LYNK&CO","color":"","driver":"","org":"","phone":"","note":""},
+      {"list":"Мир Интеллекта","plate":"О 710 ВХ 797","num":710,"model":"Ауди","color":"","driver":"Певзнер Юлия","org":"Мир Интеллекта","phone":"8-985-773-76-66","note":"Ребенок: Шкловер София"},
+      {"list":"21 пост (основной)","plate":"В 711 ТВ 797","num":711,"model":"Мерседес","color":"","driver":"","org":"","phone":"","note":""},
+      {"list":"Авто Бороды","plate":"В711ТВ 797","num":711,"model":"Мерседес GLC-Cupe","color":"","driver":"","org":"Борода","phone":"","note":""},
+      {"list":"Мир Интеллекта","plate":"А 717 ХВ 777","num":717,"model":"BMW 5","color":"","driver":"Лалаев Ирмия Славикович","org":"Мир Интеллекта","phone":"8-976-815-88-88","note":"Ребенок: Лалаев Натаниэль Ирмияевич"},
+      {"list":"21 пост (основной)","plate":"Р 727 РТ 797","num":727,"model":"Мерседес","color":"","driver":"","org":"","phone":"","note":""},
+      {"list":"Хедер Менахем","plate":"С 729 АС 550","num":729,"model":"Гили Монжаро","color":"","driver":"Бабаева Юлия Ихияевна","org":"Хедер Менахем","phone":"8(929) 621 4009","note":"Фамилия: Соркин"},
+      {"list":"Мир Интеллекта","plate":"А 735 ТО 797","num":735,"model":"Ли","color":"","driver":"Красов Максим Александрович","org":"Мир Интеллекта","phone":"8-967-228-64-06","note":"Ребенок: Рубежная Наоми"},
+      {"list":"21 пост (основной)","plate":"О 740 ОХ 197","num":740,"model":"Мерседес","color":"","driver":"","org":"","phone":"","note":""},
+      {"list":"21 пост (основной)","plate":"М 746 РР 57","num":746,"model":"Форд","color":"","driver":"","org":"","phone":"","note":""},
+      {"list":"21 пост (основной)","plate":"Х 758 ЕТ 799","num":758,"model":"Киа Оптима","color":"","driver":"Борода А.М","org":"Борода АМ","phone":"","note":"Без досмотра"},
+      {"list":"21 пост (основной)","plate":"Х 759 ЕВ 199","num":759,"model":"мерседес 'вито'","color":"","driver":"","org":"","phone":"","note":""},
+      {"list":"Мир Интеллекта","plate":"Е 760 ВС 77","num":760,"model":"Хонда CR-V","color":"","driver":"Молчанова Мария Владимировна","org":"Мир Интеллекта","phone":"8-909-959-30-98","note":"Ребенок: Белоусов Михаэль"},
+      {"list":"Мир Интеллекта","plate":"К 766 НК 761","num":766,"model":"Mercedes","color":"","driver":"Гургов Борис","org":"Мир Интеллекта","phone":"8-926-030-43-36","note":"Ребенок: Гургов Аарон"},
+      {"list":"Хедер Менахем","plate":"С 768 РМ 799","num":768,"model":"Киа Оптима","color":"","driver":"Венгеровский Александр Васильевич","org":"Хедер Менахем","phone":"8(926) 934 7777","note":"Фамилия: Венгеровский"},
+      {"list":"Мир Интеллекта","plate":"А 770 ОК 197","num":770,"model":"Мерседес Benz V-klass","color":"","driver":"Кравцов Александр Юрьевич","org":"Мир Интеллекта","phone":"8-926-266-72-82","note":"Ребенок: Бузиашвили Адина Эдуардовна"},
+      {"list":"Мир Интеллекта","plate":"В 770 ЕР 550","num":770,"model":"Haval H7","color":"","driver":"Воловиков Алексей Алексеевич","org":"Мир Интеллекта","phone":"8-926-075-03-75","note":"Ребенок: Исаков Соломон"},
+      {"list":"21 пост (основной)","plate":"В 770 НВ","num":770,"model":"Ниссан","color":"","driver":"","org":"","phone":"","note":""},
+      {"list":"21 пост (основной)","plate":"В 770 СА 777","num":770,"model":"","color":"","driver":"","org":"","phone":"","note":""},
+      {"list":"Мир Интеллекта","plate":"В 770 СА 777","num":770,"model":"Кадилак","color":"","driver":"Гуменный Евгений Валерьевич","org":"Мир Интеллекта","phone":"8-961-021-93-41","note":"Ребенок: Давыдов Герман"},
+      {"list":"Мир Интеллекта","plate":"В 770 ТВ 77","num":770,"model":"Hyundai Palisade","color":"","driver":"Вениаминов Марк Вениаминович","org":"Мир Интеллекта","phone":"8-915-307-55-21","note":"Ребенок: Вениаминов Вениамин Маркович"},
+      {"list":"Мир Интеллекта","plate":"Е 770 ЕУ 977","num":770,"model":"Джилли монжаро","color":"","driver":"Соломонов Александр","org":"Мир Интеллекта","phone":"8-906-706-85-16","note":"Ребенок: Соломонов Рафаэль"},
+      {"list":"Мир Интеллекта","plate":"Е 770 МН 550","num":770,"model":"Gac m8","color":"","driver":"Исаков Ханука Шальмиевич","org":"Мир Интеллекта","phone":"8-926-716-80-80","note":"Ребенок: Исаков Соломон"},
+      {"list":"Хедер Менахем","plate":"Е 770 РН 797","num":770,"model":"Аито","color":"","driver":"Лави Злата Евгеньевна","org":"Хедер Менахем","phone":"8(963) 301 6035","note":"Фамилия: Лави"},
+      {"list":"Мир Интеллекта","plate":"Е 770 ТТ 77","num":770,"model":"Mercedes GLS","color":"","driver":"Андрей","org":"Мир Интеллекта","phone":"8-926-836-85-67","note":"Ребенок: Нахшунов Саадия"},
+      {"list":"21 пост (основной)","plate":"К 770 ОР 797","num":770,"model":"Кадилак","color":"","driver":"Эфрат Вайсберг","org":"","phone":"","note":""},
+      {"list":"21 пост (основной)","plate":"М 770 АУ 777","num":770,"model":"Ситроен","color":"","driver":"","org":"","phone":"","note":""},
+      {"list":"Хедер Менахем","plate":"М 770 МС 797","num":770,"model":"Киа","color":"","driver":"Каримов Олим Мироджанович","org":"Хедер Менахем","phone":"8(905) 707 7079 / 8(903) 208 5081","note":"Фамилия: Якубов; Дневной интервал 13:00-15:00"},
+      {"list":"Мир Интеллекта","plate":"М 770 РТ 797","num":770,"model":"Лисянг","color":"","driver":"Шабаева Ангелина","org":"Мир Интеллекта","phone":"8-933-666-18-18","note":"Ребенок: Шабаева Софи"},
+      {"list":"21 пост (основной)","plate":"О 770 ВА 197","num":770,"model":"Киа Карнивал","color":"","driver":"Водитель Липскера","org":"Офис Дины Барлас","phone":"","note":"Без досмотра"},
+      {"list":"21 пост (основной)","plate":"О 770 ТО 797","num":770,"model":"Voyah","color":"","driver":"Йоси Липскер","org":"","phone":"","note":""},
+      {"list":"Мир Интеллекта","plate":"Р 770 ЕТ 97","num":770,"model":"Tank 300","color":"","driver":"Мататова Лидия Далфуновна","org":"Мир Интеллекта","phone":"8-928-777-33-99","note":"Ребенок: Мататов Ирган Григорьевич"},
+      {"list":"21 пост (основной)","plate":"Р 770 КР","num":770,"model":"Пежо","color":"","driver":"","org":"","phone":"","note":""},
+      {"list":"Мир Интеллекта","plate":"Р 770 ТР 797","num":770,"model":"Hyundai Palisade","color":"","driver":"Мататов Григорий Игоревич","org":"Мир Интеллекта","phone":"8-928-181-37-77","note":"Ребенок: Мататов Ирган Григорьевич"},
+      {"list":"21 пост (основной)","plate":"С 770 УВ 197","num":770,"model":"WV каравелла","color":"","driver":"Липскер","org":"","phone":"","note":"Без досмотра"},
+      {"list":"Хедер Менахем","plate":"Т 770 ЕА 797","num":770,"model":"Хендай Соната","color":"","driver":"Липкович Геннадий Игоревич","org":"Хедер Менахем","phone":"8(963) 976 5401","note":"Фамилия: Липкович; Дневной интервал 13:00-15:00"},
+      {"list":"Мир Интеллекта","plate":"Н 771 ТВ 797","num":771,"model":"Фольксваген","color":"","driver":"Исаева Елизавета Рафаэльевна","org":"Мир Интеллекта","phone":"8-999-870-97-70","note":"Ребенок: Исаев Менахем Альбертович"},
+      {"list":"Хедер Менахем","plate":"А 774 УР 97","num":774,"model":"Ниссан ИскТрейл","color":"","driver":"Шулькина Инна Олеговна","org":"Хедер Менахем","phone":"8(919) 995 5567","note":"Фамилия: Шулькин"},
+      {"list":"21 пост (основной)","plate":"В 775 КА 77","num":775,"model":"","color":"","driver":"","org":"Бейт Швидлер","phone":"","note":""},
+      {"list":"21 пост (основной)","plate":"М 777 СТ 90","num":777,"model":"","color":"","driver":"Ави Гейдж","org":"","phone":"","note":""},
+      {"list":"21 пост (основной)","plate":"О 783 РЕ","num":783,"model":"Шкода","color":"","driver":"","org":"","phone":"","note":"Без досмотра"},
+      {"list":"21 пост (основной)","plate":"Х 786 ХЕ 177","num":786,"model":"Шкода Октавия","color":"","driver":"Семья Шейнкер","org":"Общежитие","phone":"","note":""},
+      {"list":"21 пост (основной)","plate":"787","num":787,"model":"Ford Focus","color":"","driver":"Полонских","org":"школа","phone":"","note":""},
+      {"list":"21 пост (основной)","plate":"А 787 ВС 761","num":787,"model":"","color":"","driver":"","org":"Бейт Швидлер","phone":"","note":""},
+      {"list":"Мир Интеллекта","plate":"Х 787 КО 197","num":787,"model":"БМВ","color":"","driver":"Косашвили Якоб Симонович","org":"Мир Интеллекта","phone":"8-963-710-36-14","note":"Ребенок: Косашвили Эли"},
+      {"list":"Мир Интеллекта","plate":"Р 789 СХ 797","num":789,"model":"Lixiang L6","color":"","driver":"Балоян Ади","org":"Мир Интеллекта","phone":"8-916-606-65-55","note":"Ребенок: Балоян Марк"},
+      {"list":"Мир Интеллекта","plate":"В 790 ЕР","num":790,"model":"Li 9","color":"","driver":"Акиваев Артем Борхович","org":"Мир Интеллекта","phone":"8-903-792-29-17","note":"Ребенок: Акиваева Даниэла"},
+      {"list":"Мир Интеллекта","plate":"В 790 ТЕ 190","num":790,"model":"Мерседес","color":"","driver":"Стыскина Регина Шалумовна","org":"Мир Интеллекта","phone":"8-926-167-75-67","note":"Ребенок: Стыскин Йосеф Михайлович"},
+      {"list":"21 пост (основной)","plate":"К 791 МК 977","num":791,"model":"Ларгус","color":"","driver":"","org":"","phone":"","note":""},
+      {"list":"Музей (постоянные пропуска)","plate":"Р796ЕО797","num":796,"model":"Porsche","color":"","driver":"","org":"Музей","phone":"","note":"Вычеркнуто"},
+      {"list":"21 пост (основной)","plate":"К 797 АН 777","num":797,"model":"Мерседес","color":"","driver":"","org":"","phone":"","note":""},
+      {"list":"Хедер Менахем","plate":"К 797 АН 777","num":797,"model":"Мерседес","color":"","driver":"Любавин Андрей Владимирович","org":"Хедер Менахем","phone":"8(963) 999 3632","note":"Фамилия: Элазаров"},
+      {"list":"Мир Интеллекта","plate":"О 797 АУ 197","num":797,"model":"Мерседес","color":"","driver":"Лепехова Сергей Александрович","org":"Мир Интеллекта","phone":"8-915-222-30-92","note":"Ребенок: Израилов Равиль"},
+      {"list":"Мир Интеллекта","plate":"Н 800 КУ 797","num":800,"model":"Geely","color":"","driver":"Израилова Роза Захаровна","org":"Мир Интеллекта","phone":"8-903-194-76-55","note":"Ребенок: Израилов Равиль"},
+      {"list":"Мир Интеллекта","plate":"У 800 ММ 197","num":800,"model":"БМВ","color":"","driver":"Рабаев Михаил Анатольевич","org":"Мир Интеллекта","phone":"8-962-428-20-00","note":"Ребенок: Рабаев Соломон Михайлович"},
+      {"list":"Мир Интеллекта","plate":"У 800 РР 99","num":800,"model":"BMW","color":"","driver":"Рабаева Елизавета Павловна","org":"Мир Интеллекта","phone":"8-962-422-12-22","note":"Ребенок: Рабаев Соломон Михайлович"},
+      {"list":"21 пост (основной)","plate":"М 803 КА 177","num":803,"model":"Toyota лендкр","color":"черный","driver":"Р. Лазар","org":"Р. Лазар","phone":"","note":"Без досмотра"},
+      {"list":"21 пост (основной)","plate":"У 803 МХ 550","num":803,"model":"Мерседес","color":"","driver":"Борода А.М","org":"","phone":"","note":"Без досмотра"},
+      {"list":"21 пост (основной)","plate":"К 805 МК 977","num":805,"model":"Ларгус","color":"","driver":"","org":"","phone":"","note":""},
+      {"list":"21 пост (основной)","plate":"Р 815 УА 777","num":815,"model":"Тойота","color":"","driver":"","org":"","phone":"","note":""},
+      {"list":"21 пост (основной)","plate":"Х 816 ЕЕ 977","num":816,"model":"","color":"","driver":"Пансион","org":"","phone":"","note":""},
+      {"list":"Музей (постоянные пропуска)","plate":"2817АУ 50","num":817,"model":"BMW","color":"","driver":"","org":"Музей","phone":"","note":""},
+      {"list":"Мир Интеллекта","plate":"М 818 ОЛ 777","num":818,"model":"ZEEKR","color":"","driver":"Ханукаев Темури","org":"Мир Интеллекта","phone":"8-925-999-97-41","note":"Ребенок: Ханукаева Мишель Темуриевна"},
+      {"list":"Мир Интеллекта","plate":"У 818 УС 77","num":818,"model":"Porsche","color":"","driver":"Алелова Милана Менашеевна","org":"Мир Интеллекта","phone":"8-963-654-04-11","note":"Ребенок: Ханукаева Мишель Темуриевна"},
+      {"list":"21 пост (основной)","plate":"Е 819 СО 799","num":819,"model":"Фольксваген","color":"","driver":"","org":"","phone":"","note":""},
+      {"list":"21 пост (основной)","plate":"820","num":820,"model":"Форд Микроавтобу","color":"","driver":"","org":"","phone":"","note":""},
+      {"list":"Мир Интеллекта","plate":"Т 827 ЕН 790","num":827,"model":"ZEEKR","color":"","driver":"Александр","org":"Мир Интеллекта","phone":"8-999-915-22-15","note":"Ребенок: Семенова Мишель"},
+      {"list":"21 пост (основной)","plate":"К 830 УР 77","num":830,"model":"Лада Ларгус","color":"","driver":"Йоси Вайсберг","org":"","phone":"","note":""},
+      {"list":"21 пост (основной)","plate":"К 831 УР 77","num":831,"model":"Ларгус","color":"","driver":"","org":"","phone":"","note":""},
+      {"list":"21 пост (основной)","plate":"Т 840 ХЕ 777","num":840,"model":"Тойота Рав 4","color":"","driver":"","org":"","phone":"","note":""},
+      {"list":"21 пост (основной)","plate":"Х 846 МВ","num":846,"model":"Газель","color":"","driver":"","org":"","phone":"","note":""},
+      {"list":"Музей (постоянные пропуска)","plate":"Х847МВ 777","num":847,"model":"Соболь","color":"","driver":"","org":"Музей","phone":"","note":""},
+      {"list":"21 пост (основной)","plate":"Т 848 ХЕ 777","num":848,"model":"Тойота Рав 4","color":"","driver":"","org":"","phone":"","note":""},
+      {"list":"21 пост (основной)","plate":"К 858 АЕ 797","num":858,"model":"Тойота","color":"","driver":"","org":"","phone":"","note":""},
+      {"list":"Мир Интеллекта","plate":"М 863 ОС 797","num":863,"model":"ли9","color":"","driver":"Хизбулаев Рустам Ризванович","org":"Мир Интеллекта","phone":"8-977-266-11-12","note":"Ребенок: Цитилов Михаэль"},
+      {"list":"Мир Интеллекта","plate":"С 866 СК 197","num":866,"model":"Ауди А8","color":"","driver":"Исаков Захар Хаимович","org":"Мир Интеллекта","phone":"8-916-007-83-08","note":"Ребенок: Исакова Элиана"},
+      {"list":"21 пост (основной)","plate":"С 870 ХВ 797","num":870,"model":"Мерседес","color":"","driver":"","org":"","phone":"","note":""},
+      {"list":"21 пост (основной)","plate":"Р 871 МК 750","num":871,"model":"хундай Н1","color":"белый","driver":"Р. Лазар","org":"Р. Лазар","phone":"","note":"Без досмотра"},
+      {"list":"21 пост (основной)","plate":"С 876 КТ","num":876,"model":"Пежо","color":"","driver":"Шаарей Цедек","org":"","phone":"","note":""},
+      {"list":"Мир Интеллекта","plate":"Х 876 РС 777","num":876,"model":"Лексус","color":"","driver":"Еликашвили Михаил","org":"Мир Интеллекта","phone":"8-910-481-44-45","note":"Ребенок: Еликашвили Моника"},
+      {"list":"Мир Интеллекта","plate":"А 878 ОУ 797","num":878,"model":"Hyundai Staria","color":"","driver":"Шухрат","org":"Мир Интеллекта","phone":"8-916-757-96-28","note":"Ребенок: Биняминова Малка"},
+      {"list":"Мир Интеллекта","plate":"О 878 ММ 177","num":878,"model":"Zeekr 009","color":"","driver":"Сергей","org":"Мир Интеллекта","phone":"8-929-980-02-70","note":"Ребенок: Биняминова Малка"},
+      {"list":"21 пост (основной)","plate":"А 887 ОУ 797","num":887,"model":"Инфинити","color":"","driver":"Эфрат Вайсберг","org":"","phone":"","note":""},
+      {"list":"Хедер Менахем","plate":"В 888 ЕХ 197","num":888,"model":"Ленд Ровер","color":"","driver":"Акиваев Акива Шаваньевич","org":"Хедер Менахем","phone":"8(926)526 2441","note":"Фамилия: Акиваев"},
+      {"list":"21 пост (основной)","plate":"К 890 ЕС 763","num":890,"model":"Ниссан","color":"","driver":"Залман Дерен","org":"","phone":"","note":""},
+      {"list":"Мир Интеллекта","plate":"С 897 ХУ 797","num":897,"model":"Тойота","color":"","driver":"Самойлов Роман Рахмилович","org":"Мир Интеллекта","phone":"8-985-888-18-88","note":"Ребенок: Самойлова Жасмин"},
+      {"list":"Мир Интеллекта","plate":"М 898 ЕН 797","num":898,"model":"BMW","color":"","driver":"Фузайлов Маркиэль Боруххаевич","org":"Мир Интеллекта","phone":"8-915-485-05-31","note":"Ребенок: Фузайлов Беньямин"},
+      {"list":"Мир Интеллекта","plate":"Е 900 СВ 777","num":900,"model":"Форд","color":"","driver":"Волошин Игорь Викторович","org":"Мир Интеллекта","phone":"8-964-592-00-41","note":"Ребенок: Холоденко Тимофей"},
+      {"list":"21 пост (основной)","plate":"Н 904 СМ 777","num":904,"model":"Ауди","color":"","driver":"","org":"","phone":"","note":""},
+      {"list":"Хедер Менахем","plate":"Х 905 НН 977","num":905,"model":"Шкода","color":"","driver":"Алхасова Маргарита","org":"Хедер Менахем","phone":"8(903) 213 3729","note":"Фамилия: Алхасов"},
+      {"list":"Хедер Менахем","plate":"Х 905 НН 977","num":905,"model":"Шкода","color":"","driver":"Алхасов Давид","org":"Хедер Менахем","phone":"8(903) 787 2265","note":"Фамилия: Алхасов"},
+      {"list":"21 пост (основной)","plate":"А 909 КА","num":909,"model":"Тойота Камри","color":"","driver":"","org":"","phone":"","note":""},
+      {"list":"21 пост (основной)","plate":"Н 909 РТ","num":909,"model":"БМВ","color":"","driver":"","org":"","phone":"","note":""},
+      {"list":"21 пост (основной)","plate":"Р 909 СЕ 797","num":909,"model":"Лексус","color":"","driver":"","org":"","phone":"","note":""},
+      {"list":"21 пост (основной)","plate":"Х 909 СА 797","num":909,"model":"БМВ","color":"","driver":"","org":"","phone":"","note":""},
+      {"list":"Хедер Менахем","plate":"Н 910 СМ 750","num":910,"model":"Хендай","color":"","driver":"Лебедев Александр","org":"Хедер Менахем","phone":"8(985) 768 8321","note":"Фамилия: Лебедев"},
+      {"list":"Хедер Менахем","plate":"С 918 ЕЕ 797","num":918,"model":"Черри","color":"","driver":"Матвеев Геннадий Натанович","org":"Хедер Менахем","phone":"8(910) 435 9331","note":"Фамилия: Куравский"},
+      {"list":"21 пост (основной)","plate":"У 919 ТН 197","num":919,"model":"мерседес viano","color":"черный","driver":"Борода А.М.","org":"Офис Бороды АМ","phone":"","note":"Без досмотра"},
+      {"list":"21 пост (основной)","plate":"К 920 АУ","num":920,"model":"Ларгус","color":"","driver":"","org":"","phone":"","note":""},
+      {"list":"21 пост (основной)","plate":"У 920 РТ 799","num":920,"model":"Инфинити","color":"","driver":"Йоси Вайсберг","org":"Офис","phone":"","note":"Без досмотра"},
+      {"list":"21 пост (основной)","plate":"К 921 ХТ 777","num":921,"model":"Фольксваген Тигуан","color":"","driver":"","org":"","phone":"","note":""},
+      {"list":"21 пост (основной)","plate":"С 921 ХА 190","num":921,"model":"Фольксваген","color":"","driver":"Николай","org":"Медцентр","phone":"","note":""},
+      {"list":"21 пост (основной)","plate":"Х 931 МТ 777","num":931,"model":"Шевролет","color":"","driver":"Меир Федоров","org":"Месивта","phone":"","note":"Без досмотра"},
+      {"list":"21 пост (основной)","plate":"Н 936 ОС 799","num":936,"model":"Ситроен","color":"","driver":"Общежитие","org":"Круглосуточно","phone":"","note":"Без досмотра"},
+      {"list":"21 пост (основной)","plate":"С 938 ВЕ 797","num":938,"model":"Chevrolet Traverse","color":"белый","driver":"Цви Бихман","org":"","phone":"","note":"Без досмотра"},
+      {"list":"21 пост (основной)","plate":"Е 944 ХК 790","num":944,"model":"Киа Оптима","color":"","driver":"","org":"","phone":"","note":""},
+      {"list":"21 пост (основной)","plate":"А 957 ВА 797","num":957,"model":"КИА","color":"","driver":"","org":"","phone":"","note":""},
+      {"list":"21 пост (основной)","plate":"О 959 КУ 75","num":959,"model":"КИА","color":"","driver":"Офир Дабакаров","org":"","phone":"","note":""},
+      {"list":"Хедер Менахем","plate":"К 966 РН 797","num":966,"model":"Cadillac Escalade","color":"","driver":"Крылова Дарья Игоревна","org":"Хедер Менахем","phone":"8(980)7544776","note":"Фамилия: Крылова"},
+      {"list":"21 пост (основной)","plate":"К 966 СС 197","num":966,"model":"мерседес S 350","color":"черный","driver":"Р. Лазар","org":"Р. Лазар","phone":"","note":"Без досмотра"},
+      {"list":"21 пост (основной)","plate":"К 971 УВ 797","num":971,"model":"Мерседес Майбах","color":"","driver":"","org":"","phone":"","note":""},
+      {"list":"Мир Интеллекта","plate":"К 971 УВ 797","num":971,"model":"Мерседес","color":"","driver":"Коблов Геннадий Иванович","org":"Мир Интеллекта","phone":"8-926-701-09-78","note":"Ребенок: Давыдов Герман"},
+      {"list":"21 пост (основной)","plate":"У 988 СТ 797","num":988,"model":"Хюндай Стариа","color":"","driver":"Йосеф Вайсберг","org":"","phone":"","note":"Без досмотра"},
+      {"list":"Мир Интеллекта","plate":"С 990 ХУ 799","num":990,"model":"Ауди","color":"","driver":"Барели Леви Ромаевич","org":"Мир Интеллекта","phone":"8-965-408-62-26","note":"Ребенок: Барели Наоми Левиевна"},
+      {"list":"Хедер Менахем","plate":"У 991 КС 550","num":991,"model":"Xyndai IX55","color":"","driver":"Чукова Юлия Евгеньевна","org":"Хедер Менахем","phone":"89151783896","note":"Фамилия: Горюнов"},
+      {"list":"21 пост (основной)","plate":"Х 995 ЕО 977","num":995,"model":"Инфинити","color":"","driver":"Менахэм Голь","org":"","phone":"","note":""},
+      {"list":"Мир Интеллекта","plate":"А 999 АН 197","num":999,"model":"Порше","color":"","driver":"Анисимов Гай Александр","org":"Мир Интеллекта","phone":"8-986-350-22-33","note":"Ребенок: Анисимов Александр"},
+      {"list":"Мир Интеллекта","plate":"Е 999 ОК 197","num":999,"model":"Мерседес","color":"","driver":"Шамуилов Исак","org":"Мир Интеллекта","phone":"8-963-711-73-03","note":"Ребенок: Шамуилова Марина"},
+      {"list":"Мир Интеллекта","plate":"С 999 АР 790","num":999,"model":"Li","color":"","driver":"Селиванов Валерий Петрович","org":"Мир Интеллекта","phone":"8-916-802-40-56","note":"Ребенок: Анисимов Александр"},
+      {"list":"Мир Интеллекта","plate":"С 999 СМ 197","num":999,"model":"Порше","color":"","driver":"Кикозашвили Кока Иосифович","org":"Мир Интеллекта","phone":"8-903-501-66-35","note":"Ребенок: Голан Сигаль"},
+      {"list":"Мир Интеллекта","plate":"Т 999 ММ 750","num":999,"model":"БМВ","color":"","driver":"Ефимов Игорь Владиславович","org":"Мир Интеллекта","phone":"8-985-000-86-72","note":"Ребенок: Анисимов Александр"}
+    ];
+
+    // =========================================================================
+    // 2. СОСТОЯНИЕ ПРИЛОЖЕНИЯ И LOCALSTORAGE
+    // =========================================================================
+    const STORAGE_KEY = 'baza_propuskov_custom_cars_v1';
+
+    let customCars = [];
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) customCars = parsed;
+      }
+    } catch (e) {
+      console.warn('Не удалось прочитать localStorage:', e);
+    }
+
+    let allCars = [];
+    let filteredCars = [];
+    let activeList = 'ALL';
+    let activeStatus = 'all';
+    let digitsOnlyMode = false;
+    let visibleLimit = 60;
+
+    const LIST_ORDER = [
+      '21 пост (основной)',
+      'Мир Интеллекта',
+      'Хедер Менахем',
+      'Музей (постоянные пропуска)',
+      'Авто Бороды'
+    ];
+
+    const LIST_STYLES = {
+      '21 пост (основной)': 'bg-blue-100 text-blue-900 border-blue-200',
+      'Мир Интеллекта': 'bg-violet-100 text-violet-900 border-violet-200',
+      'Хедер Менахем': 'bg-amber-100 text-amber-900 border-amber-200',
+      'Музей (постоянные пропуска)': 'bg-teal-100 text-teal-900 border-teal-200',
+      'Авто Бороды': 'bg-slate-800 text-white border-slate-700'
+    };
+
+    // Извлечение основного цифрового номера из строки гос. номера
+    function extractMainNumber(plate) {
+      const cleaned = String(plate || '').trim();
+      // Ищем первую группу из 1-4 цифр (основной номер, до региона)
+      const match = cleaned.match(/\d{1,4}/);
+      return match ? parseInt(match[0], 10) : 0;
+    }
+
+    // Определение статуса досмотра по примечанию
+    function getInspectionStatus(note) {
+      const n = String(note || '').toLowerCase();
+      if (n.includes('вычеркнуто')) return 'crossed';
+      if (n.includes('без досмотра')) return 'no_inspection';
+      if (n.includes('с досмотром')) return 'with_inspection';
+      return 'neutral';
+    }
+
+    // Разбор российского номера на основную часть и регион для красивого рендера
+    function parseRussianPlate(plate) {
+      const raw = String(plate || '').trim();
+      // Стандартные форматы: "А 005 ОО 77", "Х400МК177", "М060УХ 799", "5241ХА 77", "2817АУ 50"
+      const stdMatch = raw.match(/^([А-ЯA-Z0-9]\s*\d{3}\s*[А-ЯA-Z]{2})\s*(\d{2,3})$/i);
+      if (stdMatch) {
+        return { main: stdMatch[1].replace(/\s+/g, ' ').toUpperCase(), region: stdMatch[2] };
+      }
+      const motoMatch = raw.match(/^(\d{4}\s*[А-ЯA-Z]{2})\s*(\d{2,3})$/i);
+      if (motoMatch) {
+        return { main: motoMatch[1].replace(/\s+/g, ' ').toUpperCase(), region: motoMatch[2] };
+      }
+      return { main: raw, region: '' };
+    }
+
+    function rebuildAllCars() {
+      allCars = [
+        ...customCars.map((c, idx) => ({ ...c, _id: 'custom_' + idx, _custom: true })),
+        ...BASE_CARS.map((c, idx) => ({ ...c, _id: 'base_' + idx, _custom: false }))
+      ];
+      document.getElementById('totalBadge').textContent = allCars.length;
+      renderListChips();
+    }
+
+    // =========================================================================
+    // 3. РЕНДЕР ФИЛЬТРОВ-ЧИПОВ
+    // =========================================================================
+    function renderListChips() {
+      const container = document.getElementById('listChipsContainer');
+      const counts = { ALL: allCars.length };
+      LIST_ORDER.forEach(name => counts[name] = 0);
+      allCars.forEach(c => {
+        counts[c.list] = (counts[c.list] || 0) + 1;
+      });
+
+      const items = [
+        { key: 'ALL', label: `Все (${counts.ALL})` },
+        ...LIST_ORDER.map(name => ({ key: name, label: `${name} (${counts[name] || 0})` }))
+      ];
+
+      container.innerHTML = items.map(item => {
+        const isActive = activeList === item.key;
+        const cls = isActive
+          ? 'bg-blue-600 text-white border-blue-600 shadow-xs'
+          : 'bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200';
+        return `<button type="button" data-list="${escapeHtml(item.key)}" class="list-chip px-3 py-1.5 rounded-xl border text-xs font-semibold whitespace-nowrap transition cursor-pointer shrink-0 ${cls}">${escapeHtml(item.label)}</button>`;
+      }).join('');
+
+      container.querySelectorAll('.list-chip').forEach(btn => {
+        btn.addEventListener('click', () => {
+          activeList = btn.getAttribute('data-list');
+          renderListChips();
+          applyFilters();
+        });
+      });
+    }
+
+    function updateStatusChipsUI() {
+      document.querySelectorAll('.status-chip').forEach(btn => {
+        const st = btn.getAttribute('data-status');
+        const active = st === activeStatus;
+        btn.classList.remove(
+          'bg-slate-800', 'text-white',
+          'bg-emerald-600', 'bg-emerald-50', 'text-emerald-800', 'border-emerald-200',
+          'bg-rose-600', 'bg-rose-50', 'text-rose-800', 'border-rose-200',
+          'bg-slate-100', 'text-slate-700'
+        );
+        if (st === 'all') {
+          btn.classList.add(...(active ? ['bg-slate-800', 'text-white'] : ['bg-slate-100', 'text-slate-700']));
+        } else if (st === 'no_inspection') {
+          btn.classList.add(...(active ? ['bg-emerald-600', 'text-white'] : ['bg-emerald-50', 'text-emerald-800', 'border-emerald-200']));
+        } else if (st === 'with_inspection') {
+          btn.classList.add(...(active ? ['bg-rose-600', 'text-white'] : ['bg-rose-50', 'text-rose-800', 'border-rose-200']));
+        }
+      });
+    }
+
+    // =========================================================================
+    // 4. УМНЫЙ ПОИСК И ФИЛЬТРАЦИЯ
+    // =========================================================================
+    function applyFilters() {
+      const rawQuery = document.getElementById('searchInput').value.trim();
+      const qLower = rawQuery.toLowerCase();
+      const qNoSpaces = qLower.replace(/\s+/g, '');
+      const clearBtn = document.getElementById('clearSearchBtn');
+      clearBtn.classList.toggle('hidden', rawQuery.length === 0);
+
+      // Проверяем, является ли запрос чисто цифровым
+      const isPureDigits = /^\d+$/.test(rawQuery);
+      const queryInt = isPureDigits ? parseInt(rawQuery, 10) : null;
+
+      filteredCars = allCars.filter(car => {
+        // Фильтр по списку
+        if (activeList !== 'ALL' && car.list !== activeList) return false;
+
+        // Фильтр по статусу досмотра
+        const status = getInspectionStatus(car.note);
+        if (activeStatus === 'no_inspection' && status !== 'no_inspection') return false;
+        if (activeStatus === 'with_inspection' && status !== 'with_inspection') return false;
+
+        // Фильтр по поисковому запросу
+        if (!rawQuery) return true;
+
+        const plateLower = String(car.plate || '').toLowerCase();
+        const plateCompact = plateLower.replace(/\s+/g, '');
+        const carNum = Number(car.num);
+
+        if (digitsOnlyMode) {
+          const digitsQuery = rawQuery.replace(/\D/g, '');
+          if (!digitsQuery) return true;
+          const dInt = parseInt(digitsQuery, 10);
+          return carNum === dInt || plateCompact.includes(digitsQuery);
+        }
+
+        if (isPureDigits) {
+          // Умное совпадение: 770 -> num===770 или подстрока 770; 1 или 001 -> num===1 или подстрока
+          if (carNum === queryInt) return true;
+          if (plateCompact.includes(rawQuery)) return true;
+          if (String(car.phone || '').replace(/\D/g, '').includes(rawQuery)) return true;
+          return false;
+        }
+
+        // Текстовый / смешанный запрос по всем полям
+        if (plateLower.includes(qLower) || plateCompact.includes(qNoSpaces)) return true;
+        if (String(car.model || '').toLowerCase().includes(qLower)) return true;
+        if (String(car.driver || '').toLowerCase().includes(qLower)) return true;
+        if (String(car.org || '').toLowerCase().includes(qLower)) return true;
+        if (String(car.note || '').toLowerCase().includes(qLower)) return true;
+        if (String(car.color || '').toLowerCase().includes(qLower)) return true;
+        if (String(car.list || '').toLowerCase().includes(qLower)) return true;
+        if (String(car.phone || '').toLowerCase().includes(qLower)) return true;
+
+        return false;
+      });
+
+      // Сортировка результатов: при цифровом поиске точные совпадения по основному номеру (num) поднимаем наверх
+      if (rawQuery && /^\d+$/.test(rawQuery)) {
+        const targetNum = parseInt(rawQuery, 10);
+        filteredCars.sort((a, b) => {
+          const aExact = Number(a.num) === targetNum ? 0 : 1;
+          const bExact = Number(b.num) === targetNum ? 0 : 1;
+          if (aExact !== bExact) return aExact - bExact;
+          return Number(a.num) - Number(b.num);
+        });
+      }
+
+      visibleLimit = 60;
+      renderCards();
+    }
+
+    // =========================================================================
+    // 5. РЕНДЕР КАРТОЧЕК РЕЗУЛЬТАТОВ
+    // =========================================================================
+    function escapeHtml(str) {
+      return String(str || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    function extractCallablePhones(phoneStr) {
+      if (!phoneStr) return [];
+      // Разбиваем по "/", если указано два телефона
+      return String(phoneStr)
+        .split('/')
+        .map(part => {
+          const digits = part.replace(/\D/g, '');
+          if (digits.length < 7) return null;
+          const tel = digits.startsWith('8') && digits.length === 11
+            ? '+7' + digits.slice(1)
+            : (digits.startsWith('7') && digits.length === 11 ? '+' + digits : digits);
+          return { label: part.trim(), tel };
+        })
+        .filter(Boolean);
+    }
+
+    function renderCards() {
+      const grid = document.getElementById('cardsGrid');
+      const emptyState = document.getElementById('emptyState');
+      const foundCount = document.getElementById('foundCount');
+      const loadMoreWrap = document.getElementById('loadMoreWrap');
+      const loadMoreBtn = document.getElementById('loadMoreBtn');
+
+      foundCount.textContent = filteredCars.length;
+
+      if (filteredCars.length === 0) {
+        grid.innerHTML = '';
+        emptyState.classList.remove('hidden');
+        loadMoreWrap.classList.add('hidden');
+        return;
+      }
+
+      emptyState.classList.add('hidden');
+      const slice = filteredCars.slice(0, visibleLimit);
+
+      grid.innerHTML = slice.map(car => {
+        const status = getInspectionStatus(car.note);
+        const listStyle = LIST_STYLES[car.list] || 'bg-slate-100 text-slate-800 border-slate-200';
+        const parsedPlate = parseRussianPlate(car.plate);
+        const phones = extractCallablePhones(car.phone);
+
+        let statusBadge = '';
+        if (status === 'no_inspection') {
+          statusBadge = `<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">✓ Без досмотра</span>`;
+        } else if (status === 'with_inspection') {
+          statusBadge = `<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold bg-rose-100 text-rose-800 border border-rose-200">! С досмотром</span>`;
+        } else if (status === 'crossed') {
+          statusBadge = `<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold bg-slate-200 text-slate-600 line-through">Вычеркнуто</span>`;
+        }
+
+        // Убираем дублирование слов статуса из текста дополнительного примечания
+        let extraNote = String(car.note || '').trim();
+        if (/^(без досмотра|с досмотром|вычеркнуто)$/i.test(extraNote)) {
+          extraNote = '';
+        }
+
+        const plateHtml = parsedPlate.region
+          ? `<div class="ru-plate ${status === 'crossed' ? 'opacity-60 line-through' : ''}">
+               <div class="ru-plate-main">${escapeHtml(parsedPlate.main)}</div>
+               <div class="ru-plate-reg">
+                 <span class="ru-plate-reg-num">${escapeHtml(parsedPlate.region)}</span>
+                 <span class="ru-plate-rus">RUS<span class="ru-flag"></span></span>
+               </div>
+             </div>`
+          : `<div class="ru-plate ${status === 'crossed' ? 'opacity-60 line-through' : ''}">
+               <div class="ru-plate-main">${escapeHtml(parsedPlate.main)}</div>
+             </div>`;
+
+        const cardBorder = status === 'no_inspection'
+          ? 'border-emerald-200/90'
+          : (status === 'with_inspection' ? 'border-rose-300' : 'border-slate-200');
+
+        return `
+          <article class="bg-white rounded-2xl border ${cardBorder} p-4 shadow-xs hover:shadow-md transition flex flex-col justify-between gap-3 ${status === 'crossed' ? 'opacity-75 bg-slate-50' : ''}">
+            <div>
+              <!-- Верх карточки: Название списка жирным и статус -->
+              <div class="flex items-start justify-between gap-2 mb-3">
+                <span class="inline-block px-2.5 py-1 rounded-lg border text-xs font-extrabold tracking-tight ${listStyle}">
+                  ${escapeHtml(car.list)}
+                </span>
+                <div class="flex items-center gap-1.5 shrink-0">
+                  ${car._custom ? '<span class="px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-100 text-amber-800">Новое</span>' : ''}
+                  ${statusBadge}
+                </div>
+              </div>
+
+              <!-- Гос. номер + Марка и цвет -->
+              <div class="flex flex-wrap items-center justify-between gap-2.5 pb-3 border-b border-slate-100">
+                ${plateHtml}
+                <div class="text-right min-w-0 flex-1">
+                  <div class="text-sm sm:text-base font-bold text-slate-900 leading-snug break-words">
+                    ${car.model ? escapeHtml(car.model) : '<span class="text-slate-400 font-normal">Марка не указана</span>'}
+                  </div>
+                  ${car.color ? `<div class="text-xs font-medium text-slate-500 mt-0.5">Цвет: <span class="text-slate-700">${escapeHtml(car.color)}</span></div>` : ''}
+                </div>
+              </div>
+
+              <!-- Детали: Водитель, Организация, Примечание -->
+              <dl class="mt-3 space-y-1.5 text-xs sm:text-sm">
+                ${car.driver ? `
+                  <div class="flex items-start gap-2">
+                    <dt class="text-slate-400 shrink-0 w-24">Водитель:</dt>
+                    <dd class="font-semibold text-slate-800 break-words">${escapeHtml(car.driver)}</dd>
+                  </div>` : ''}
+                ${car.org ? `
+                  <div class="flex items-start gap-2">
+                    <dt class="text-slate-400 shrink-0 w-24">Организация:</dt>
+                    <dd class="font-medium text-slate-700 break-words">${escapeHtml(car.org)}</dd>
+                  </div>` : ''}
+                ${extraNote ? `
+                  <div class="flex items-start gap-2">
+                    <dt class="text-slate-400 shrink-0 w-24">Примечание:</dt>
+                    <dd class="text-slate-700 bg-slate-50 px-2 py-1 rounded-lg border border-slate-100 flex-1 break-words">${escapeHtml(extraNote)}</dd>
+                  </div>` : ''}
+              </dl>
+            </div>
+
+            <!-- Нижняя панель карточки: Телефон / Позвонить -->
+            ${phones.length > 0 ? `
+              <div class="pt-2.5 border-t border-slate-100 flex flex-wrap gap-2">
+                ${phones.map(p => `
+                  <a href="tel:${escapeHtml(p.tel)}" class="flex-1 inline-flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl bg-blue-50 hover:bg-blue-600 text-blue-700 hover:text-white border border-blue-200 hover:border-blue-600 text-xs sm:text-sm font-bold transition">
+                    <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/>
+                    </svg>
+                    <span>Позвонить: ${escapeHtml(p.label)}</span>
+                  </a>
+                `).join('')}
+              </div>
+            ` : (car.phone ? `
+              <div class="pt-2 border-t border-slate-100 text-xs text-slate-600 font-medium">
+                Контакт: ${escapeHtml(car.phone)}
+              </div>
+            ` : '')}
+          </article>
+        `;
+      }).join('');
+
+      if (filteredCars.length > visibleLimit) {
+        const remaining = filteredCars.length - visibleLimit;
+        loadMoreBtn.textContent = `Показать ещё (осталось ${remaining})`;
+        loadMoreWrap.classList.remove('hidden');
+      } else {
+        loadMoreWrap.classList.add('hidden');
+      }
+    }
+
+    // =========================================================================
+    // 6. СОБЫТИЯ ИНТЕРФЕЙСА, ДОБАВЛЕНИЕ АВТО И ЭКСПОРТ
+    // =========================================================================
+    function showToast(msg) {
+      const el = document.getElementById('toast');
+      el.textContent = msg;
+      el.classList.remove('hidden');
+      clearTimeout(el._timer);
+      el._timer = setTimeout(() => el.classList.add('hidden'), 3000);
+    }
+
+    const searchInput = document.getElementById('searchInput');
+    searchInput.addEventListener('input', applyFilters);
+
+    document.getElementById('clearSearchBtn').addEventListener('click', () => {
+      searchInput.value = '';
+      applyFilters();
+      searchInput.focus();
+    });
+
+    // Переключение режимов "Все поля" / "Только цифры номера"
+    const modeAllBtn = document.getElementById('modeAllBtn');
+    const modeDigitsBtn = document.getElementById('modeDigitsBtn');
+
+    modeAllBtn.addEventListener('click', () => {
+      digitsOnlyMode = false;
+      searchInput.setAttribute('inputmode', 'text');
+      searchInput.placeholder = 'Введите цифры номера (напр. 770, 400, 1) или фамилию, авто...';
+      modeAllBtn.classList.add('bg-white', 'text-blue-700', 'shadow-sm');
+      modeAllBtn.classList.remove('text-slate-600');
+      modeDigitsBtn.classList.remove('bg-white', 'text-blue-700', 'shadow-sm');
+      modeDigitsBtn.classList.add('text-slate-600');
+      applyFilters();
+      searchInput.focus();
+    });
+
+    modeDigitsBtn.addEventListener('click', () => {
+      digitsOnlyMode = true;
+      searchInput.setAttribute('inputmode', 'numeric');
+      searchInput.placeholder = 'Введите только цифры гос. номера (например: 770, 400, 1)...';
+      modeDigitsBtn.classList.add('bg-white', 'text-blue-700', 'shadow-sm');
+      modeDigitsBtn.classList.remove('text-slate-600');
+      modeAllBtn.classList.remove('bg-white', 'text-blue-700', 'shadow-sm');
+      modeAllBtn.classList.add('text-slate-600');
+      applyFilters();
+      searchInput.focus();
+    });
+
+    // Цифровая панель
+    const numpadPanel = document.getElementById('numpadPanel');
+    document.getElementById('toggleNumpadBtn').addEventListener('click', () => {
+      numpadPanel.classList.toggle('hidden');
+    });
+
+    document.querySelectorAll('.numpad-key').forEach(btn => {
+      btn.addEventListener('click', () => {
+        searchInput.value += btn.getAttribute('data-digit');
+        applyFilters();
+      });
+    });
+
+    document.getElementById('numpadBackspace').addEventListener('click', () => {
+      searchInput.value = searchInput.value.slice(0, -1);
+      applyFilters();
+    });
+
+    document.getElementById('numpadClear').addEventListener('click', () => {
+      searchInput.value = '';
+      applyFilters();
+    });
+
+    // Фильтры статусов
+    document.querySelectorAll('.status-chip').forEach(btn => {
+      btn.addEventListener('click', () => {
+        activeStatus = btn.getAttribute('data-status');
+        updateStatusChipsUI();
+        applyFilters();
+      });
+    });
+
+    document.getElementById('resetFiltersBtn').addEventListener('click', () => {
+      searchInput.value = '';
+      activeList = 'ALL';
+      activeStatus = 'all';
+      renderListChips();
+      updateStatusChipsUI();
+      applyFilters();
+    });
+
+    document.getElementById('loadMoreBtn').addEventListener('click', () => {
+      visibleLimit += 80;
+      renderCards();
+    });
+
+    // Модальное окно добавления авто
+    const addModal = document.getElementById('addModal');
+    document.getElementById('openAddModalBtn').addEventListener('click', () => {
+      addModal.classList.remove('hidden');
+      document.getElementById('fPlate').focus();
+    });
+    const closeAddModal = () => addModal.classList.add('hidden');
+    document.getElementById('closeAddModalBtn').addEventListener('click', closeAddModal);
+    document.getElementById('cancelAddModalBtn').addEventListener('click', closeAddModal);
+    addModal.addEventListener('click', (e) => {
+      if (e.target === addModal) closeAddModal();
+    });
+
+    document.getElementById('addCarForm').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const plate = document.getElementById('fPlate').value.trim().toUpperCase();
+      if (!plate) return;
+
+      const statusPreset = document.getElementById('fStatusPreset').value;
+      const rawNote = document.getElementById('fNote').value.trim();
+      const combinedNote = [statusPreset, rawNote].filter(Boolean).join('; ');
+
+      const newCar = {
+        list: document.getElementById('fList').value,
+        plate: plate,
+        num: extractMainNumber(plate),
+        model: document.getElementById('fModel').value.trim(),
+        color: document.getElementById('fColor').value.trim(),
+        driver: document.getElementById('fDriver').value.trim(),
+        org: document.getElementById('fOrg').value.trim(),
+        phone: document.getElementById('fPhone').value.trim(),
+        note: combinedNote
+      };
+
+      customCars.unshift(newCar);
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(customCars));
+      } catch (err) {
+        console.warn('Ошибка сохранения в localStorage:', err);
+      }
+
+      e.target.reset();
+      closeAddModal();
+      rebuildAllCars();
+      applyFilters();
+      showToast(`Автомобиль ${newCar.plate} добавлен в базу`);
+    });
+
+    // Меню экспорта
+    const exportMenuBtn = document.getElementById('exportMenuBtn');
+    const exportDropdown = document.getElementById('exportDropdown');
+    exportMenuBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      exportDropdown.classList.toggle('hidden');
+    });
+    document.addEventListener('click', () => exportDropdown.classList.add('hidden'));
+
+    function downloadBlob(content, filename, mimeType) {
+      const blob = new Blob([content], { type: mimeType });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+
+    document.getElementById('exportJsonBtn').addEventListener('click', () => {
+      const clean = allCars.map(({ _id, _custom, ...rest }) => rest);
+      downloadBlob(JSON.stringify(clean, null, 2), 'baza_propuskov_backup.json', 'application/json;charset=utf-8');
+      showToast('Резервная копия JSON скачана');
+    });
+
+    document.getElementById('exportCsvBtn').addEventListener('click', () => {
+      const headers = ['Название списка', 'Гос. номер', 'Цифровой номер', 'Марка/Модель', 'Цвет', 'Водитель', 'Организация', 'Телефон', 'Примечание'];
+      const escCsv = (val) => `"${String(val || '').replace(/"/g, '""')}"`;
+      const rows = allCars.map(c => [
+        c.list, c.plate, c.num, c.model, c.color, c.driver, c.org, c.phone, c.note
+      ].map(escCsv).join(';'));
+      const csvContent = '\uFEFF' + [headers.map(escCsv).join(';'), ...rows].join('\r\n');
+      downloadBlob(csvContent, 'baza_propuskov_export.csv', 'text/csv;charset=utf-8');
+      showToast('Таблица CSV для Excel скачана');
+    });
+
+    document.getElementById('resetCustomBtn').addEventListener('click', () => {
+      if (customCars.length === 0) {
+        showToast('Нет добавленных вручную записей');
+        return;
+      }
+      customCars = [];
+      localStorage.removeItem(STORAGE_KEY);
+      rebuildAllCars();
+      applyFilters();
+      showToast('Добавленные вручную записи удалены');
+    });
+
+    // =========================================================================
+    // 7. PWA: ДИНАМИЧЕСКИЙ MANIFEST И SERVICE WORKER ДЛЯ РАБОТЫ ОФЛАЙН
+    // =========================================================================
+    (function setupPwa() {
+      try {
+        const iconSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192"><rect width="192" height="192" rx="40" fill="#0f172a"/><rect x="24" y="68" width="144" height="56" rx="12" fill="#ffffff" stroke="#2563eb" stroke-width="6"/><text x="96" y="106" font-family="monospace" font-size="34" font-weight="bold" fill="#0f172a" text-anchor="middle">770 RUS</text></svg>`;
+        const iconUrl = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(iconSvg);
+
+        const manifest = {
+          name: 'База пропусков — Поиск ТС',
+          short_name: 'База пропусков',
+          description: 'Мгновенный офлайн-поиск автомобилей по спискам пропусков',
+          start_url: location.href,
+          display: 'standalone',
+          background_color: '#f1f5f9',
+          theme_color: '#0f172a',
+          icons: [
+            { src: iconUrl, sizes: '192x192', type: 'image/svg+xml' },
+            { src: iconUrl, sizes: '512x512', type: 'image/svg+xml' }
+          ]
+        };
+
+        const manifestBlob = new Blob([JSON.stringify(manifest)], { type: 'application/manifest+json' });
+        const manifestLink = document.createElement('link');
+        manifestLink.rel = 'manifest';
+        manifestLink.href = URL.createObjectURL(manifestBlob);
+        document.head.appendChild(manifestLink);
+
+        if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.protocol === 'http:')) {
+          const swCode = `
+            const CACHE_NAME = 'baza-propuskov-v1';
+            self.addEventListener('install', (e) => {
+              self.skipWaiting();
+              e.waitUntil(caches.open(CACHE_NAME).then(cache => cache.addAll([self.location.href]).catch(() => {})));
+            });
+            self.addEventListener('activate', (e) => {
+              e.waitUntil(self.clients.claim());
+            });
+            self.addEventListener('fetch', (e) => {
+              e.respondWith(
+                caches.match(e.request).then(cached => cached || fetch(e.request).then(resp => {
+                  const copy = resp.clone();
+                  caches.open(CACHE_NAME).then(cache => cache.put(e.request, copy)).catch(() => {});
+                  return resp;
+                }).catch(() => cached))
+              );
+            });
+          `;
+          const swBlob = new Blob([swCode], { type: 'application/javascript' });
+          navigator.serviceWorker.register(URL.createObjectURL(swBlob)).catch(() => {});
+        }
+      } catch (e) {
+        // Игнорируем ограничения sandbox/iframe при предпросмотре
+      }
+
+      let deferredPrompt = null;
+      const installBtn = document.getElementById('installPwaBtn');
+      window.addEventListener('beforeinstallprompt', (e) => {
+        e.preventDefault();
+        deferredPrompt = e;
+        installBtn.classList.remove('hidden');
+        installBtn.classList.add('inline-flex');
+      });
+
+      installBtn.addEventListener('click', async () => {
+        if (!deferredPrompt) return;
+        deferredPrompt.prompt();
+        await deferredPrompt.userChoice;
+        deferredPrompt = null;
+        installBtn.classList.add('hidden');
+      });
+
+      const updateOnlineStatus = () => {
+        const el = document.getElementById('offlineStatusText');
+        el.textContent = navigator.onLine
+          ? 'Онлайн • База сохранена в устройстве'
+          : 'Офлайн-режим • Все 382+ записи доступны';
+      };
+      window.addEventListener('online', updateOnlineStatus);
+      window.addEventListener('offline', updateOnlineStatus);
+      updateOnlineStatus();
+    })();
+
+    // Инициализация приложения при загрузке страницы
+    window.addEventListener('DOMContentLoaded', () => {
+      rebuildAllCars();
+      updateStatusChipsUI();
+      applyFilters();
+    });
+  </script>
+</body>
+</html>
